@@ -1,0 +1,22 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    name: Android64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: Android64
+          combine: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gd-ai-builder
+          path: ./build/*.geode
