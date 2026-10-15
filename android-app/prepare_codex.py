@@ -5,5 +5,6 @@ import sys
 root = Path(sys.argv[1])
 manifest = root / 'core/Cargo.toml'
 text = manifest.read_text()
-text += '\n[target.aarch64-linux-android.dependencies]\nopenssl-sys = { workspace = true, features = ["vendored"] }\n'
+for target in ('aarch64-linux-android', 'x86_64-linux-android'):
+    text += f'\n[target.{target}.dependencies]\nopenssl-sys = {{ workspace = true, features = ["vendored"] }}\n'
 manifest.write_text(text)

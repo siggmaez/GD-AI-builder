@@ -213,7 +213,10 @@ def validate_objects(data, ctx):
 
 
 def cli_command(cli, *args):
-    exe = shutil.which(cli)
+    # The phone companion ships a native executable in Android's executable
+    # nativeLibraryDir. It doesn't use npm, a shell wrapper, or Termux.
+    bundled = os.environ.get("AI_BUILDER_CODEX_BINARY") if cli == "codex" else None
+    exe = bundled if bundled and Path(bundled).is_file() else shutil.which(cli)
     if not exe:
         raise BridgeError("cli_missing", "CLI not found in PATH: " + cli, 503)
     # npm's Windows wrappers are batch files. Invoke their JS entry points directly

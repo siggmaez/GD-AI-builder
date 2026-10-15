@@ -1,0 +1,30 @@
+plugins { id 'com.android.application'; id 'com.chaquo.python' }
+
+android {
+    namespace 'com.siggmaez.aibuilder.bridge'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.siggmaez.aibuilder.bridge'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.6.0'
+        ndk { abiFilters providers.gradleProperty('bridgeAbi').getOrElse('arm64-v8a') }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    packaging { jniLibs { useLegacyPackaging = true; keepDebugSymbols += ['**/libcodex.so'] } }
+}
+chaquopy { defaultConfig { version = '3.12' } }
+
+tasks.register('prepareBridgeAssets', Sync) {
+    into layout.buildDirectory.dir('generated/bridgeAssets/bridge')
+    from('../../bridge.py')
+    from('../../account_login.py')
+    from('../../account_limits.py')
+    from('../../chat_inputs.py')
+    into('resources') {
+        from('../../resources') { include 'object-whitelist.json', 'object-catalog.json', 'login.html' }
+    }
+}
+android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/bridgeAssets'))
+tasks.named('preBuild').configure { dependsOn 'prepareBridgeAssets' }
