@@ -15,7 +15,8 @@ using namespace geode::prelude;
 
 namespace ui {
 	inline char const* inputFont() {
-		static auto path = (Mod::get()->getResourcesDir() / "ai-builder-font.fnt").string();
+		// Cocos resolves the atlas relative to the FNT using '/' even on Windows.
+		static auto path = (Mod::get()->getResourcesDir() / "ai-builder-font.fnt").generic_string();
 		return path.c_str();
 	}
 
@@ -45,7 +46,7 @@ namespace ui {
 		node->setContentSize({w, h});
 		node->setAnchorPoint({0.5f, 0.5f});
 
-		auto bg = NineSlice::create("square02_001.png");
+		auto bg = NineSlice::create("square02b_001.png");
 		bg->setContentSize({w, h});
 		bg->setColor(col);
 		bg->setPosition({w / 2, h / 2});

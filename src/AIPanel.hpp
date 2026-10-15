@@ -24,7 +24,7 @@ class AIPanel : public Popup {
     async::TaskHolder<file::PickResult> m_picker;
 
     bool init(LevelEditorLayer* editor) {
-        if (!Popup::init(590,310,"square02_001.png")) return false;
+        if (!Popup::init(590,310,"square02b_001.png")) return false;
         m_job = AIJob::get(editor);
         m_decor = m_job->m_decor;
         m_bgSprite->setColor(ui::kSurface);
@@ -42,7 +42,7 @@ class AIPanel : public Popup {
         ui::button(menu,"Settings",{412,286},80,[](auto){geode::openSettingsPopup(Mod::get());});
         ui::button(menu,"Limits",{494,286},70,[](auto){if(auto p=AccountLimits::create())p->show();});
         ui::button(menu,"x",{561,286},28,[this](auto){onClose(nullptr);});
-        auto bg=NineSlice::create("square02_001.png");bg->setContentSize({292,190});bg->setPosition({162,166});bg->setColor({12,14,19});root->addChild(bg);
+        auto bg=NineSlice::create("square02b_001.png");bg->setContentSize({292,190});bg->setPosition({162,166});bg->setColor({12,14,19});root->addChild(bg);
         m_chat=ScrollLayer::create(CCSize{280,178});m_chat->setPosition({22,77});root->addChild(m_chat);
         m_gamePill=ui::makePill("Gameplay",117,25,ui::kAccent,.35f);
         m_decorPill=ui::makePill("Decor",117,25,ui::kIdle,.35f);
@@ -50,7 +50,7 @@ class AIPanel : public Popup {
         auto decor=CCMenuItemExt::createSpriteExtra(m_decorPill,[this](auto){if(!m_job->m_busy){m_decor=true;mode();}});
         game->setPosition({383,250});decor->setPosition({509,250});menu->addChild(game);menu->addChild(decor);
         m_model=ui::label(root,"CLI default",{446,226},.3f);
-        bg=NineSlice::create("square02_001.png");bg->setContentSize({245,85});bg->setPosition({446,155});bg->setColor({12,14,19});root->addChild(bg);
+        bg=NineSlice::create("square02b_001.png");bg->setContentSize({245,85});bg->setPosition({446,155});bg->setColor({12,14,19});root->addChild(bg);
         m_preview=CCDrawNode::create();m_preview->setPosition({329,114});root->addChild(m_preview);
         m_area=ui::label(root,"Editor area",{446,99},.27f);
         for(int i=0;i<3;++i){
@@ -147,7 +147,7 @@ class AIPanel : public Popup {
             auto label=CCLabelBMFont::create(text.c_str(),ui::inputFont(),690,kCCTextAlignmentLeft);
             label->setScale(.36f);label->setAnchorPoint({0,0});label->setColor(ui::kText);
             float height=label->getContentHeight()*.36f+25;
-            auto bg=NineSlice::create("square02_001.png");bg->setColor(user?ccColor3B{38,45,68}:ccColor3B{27,30,37});
+            auto bg=NineSlice::create("square02b_001.png");bg->setColor(user?ccColor3B{38,45,68}:ccColor3B{27,30,37});
             bg->setContentSize({272,height});bg->setPosition({140,y+height/2});content->addChild(bg);
             auto role=ui::label(content,user?"You":"AI",{20,y+height-9},.22f);role->setAnchorPoint({0,.5f});
             label->setPosition({16,y+6});content->addChild(label);y+=height+7;

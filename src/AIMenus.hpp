@@ -32,7 +32,7 @@ class AccountPopup : public Popup {
     async::TaskHolder<web::WebResponse> m_request;
     bool m_pending = false;
     bool init() {
-        if (!Popup::init(370, 240, "square02_001.png")) return false;
+        if (!Popup::init(370, 240, "square02b_001.png")) return false;
         m_bgSprite->setColor(ui::kSurface); setTitle("ChatGPT Account", ui::font(), .5f);
         m_message = ui::label(m_mainLayer, "Sign in through your PC bridge.", {185, 183}, .36f, true);
         m_code = ui::label(m_mainLayer, "", {185, 143}, .7f);
@@ -92,7 +92,7 @@ class ModelsPopup : public Popup {
     ScrollLayer* m_list = nullptr;
     async::TaskHolder<web::WebResponse> m_request;
     bool init() {
-        if (!Popup::init(350, 260, "square02_001.png")) return false;
+        if (!Popup::init(350, 260, "square02b_001.png")) return false;
         m_bgSprite->setColor(ui::kSurface); setTitle("Model", ui::font(), .5f);
         m_list = ScrollLayer::create(CCSize{310, 150}); m_list->setPosition({20, 70});
         m_mainLayer->addChild(m_list);
@@ -142,7 +142,7 @@ public:
 
 class HistoryPopup : public Popup {
     bool init() {
-        if (!Popup::init(350,260,"square02_001.png")) return false;
+        if (!Popup::init(350,260,"square02b_001.png")) return false;
         m_bgSprite->setColor(ui::kSurface); setTitle("Chat History",ui::font(),.5f);
         auto list=ScrollLayer::create(CCSize{310,170}); list->setPosition({20,55}); m_mainLayer->addChild(list);
         auto& chats=ChatStore::chats();
