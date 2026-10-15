@@ -21,9 +21,9 @@ MAX_BODY = 256 * 1024
 SLOTS = threading.BoundedSemaphore(2)
 ACCOUNT = AccountLogin()
 COMMANDS = {
-    "claude": lambda exe, p: [exe, "-p", p],
-    "codex": lambda exe, p: [exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "-c", 'model_provider="openai"', p],
-    "gemini": lambda exe, p: [exe, "-p", p],
+    "claude": lambda exe, p: [exe, "-p"],
+    "codex": lambda exe, p: [exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "-c", 'model_provider="openai"', "-"],
+    "gemini": lambda exe, p: [exe, "-p", "Follow the supplied stdin prompt and return the requested JSON."],
 }
 POLICY = json.loads((Path(__file__).parent / "resources" / "object-whitelist.json").read_text(encoding="utf-8"))
 CATALOG = json.loads((Path(__file__).parent / "resources" / "object-catalog.json").read_text(encoding="utf-8"))
@@ -214,13 +214,14 @@ def run_cli(ctx, runner=subprocess.run):
                 raise BridgeError("cli_not_logged_in", "Use ChatGPT account sign-in; API-key mode is disabled", 503)
         except (OSError, subprocess.TimeoutExpired):
             raise BridgeError("cli_not_logged_in", "Cannot check ChatGPT account sign-in", 503)
-    command = COMMANDS[ctx["cli"]](ctx["cli"], SYSTEM + json.dumps(ctx, ensure_ascii=False))
+    prompt = SYSTEM + json.dumps(ctx, ensure_ascii=False)
+    command = COMMANDS[ctx["cli"]](ctx["cli"], prompt)
     command = cli_command(command[0], *command[1:])
     deadline = time.monotonic() + max(1, ctx.get("timeout", 180) - 10)
     for attempt in range(2):
         try:
             run = runner(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                         timeout=max(0.1, deadline - time.monotonic()), env=account_env())
+                         timeout=max(0.1, deadline - time.monotonic()), env=account_env(), input=prompt)
         except subprocess.TimeoutExpired:
             raise BridgeError("timeout", "CLI timed out", 504)
         except OSError:
@@ -235,7 +236,7 @@ def run_cli(ctx, runner=subprocess.run):
         except (ValueError, RecursionError):
             if attempt:
                 raise BridgeError("invalid_json", "Invalid JSON after one retry")
-            command[-1] += "\nPrevious answer invalid. Return ONLY the required JSON using allowed_ids and bounds."
+            prompt += "\nPrevious answer invalid. Return ONLY the required JSON using allowed_ids and bounds."
 
 
 class Handler(BaseHTTPRequestHandler):

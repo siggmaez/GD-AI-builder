@@ -125,11 +125,11 @@ class BridgeTests(unittest.TestCase):
         responses = iter(["not JSON", '{"objects":[]}'])
         calls = []
         def run(cmd, **kwargs):
-            calls.append(list(cmd))
+            calls.append(kwargs["input"])
             return subprocess.CompletedProcess(cmd, 0, next(responses), "")
         self.assertEqual(bridge.run_cli(self.ctx(), run), {"objects": []})
         self.assertEqual(len(calls), 2)
-        self.assertIn("Previous answer invalid", calls[1][-1])
+        self.assertIn("Previous answer invalid", calls[1])
         def bad(cmd, **kwargs):
             return subprocess.CompletedProcess(cmd, 0, "bad", "")
         with self.assertRaises(bridge.BridgeError) as err:
