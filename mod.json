@@ -48,7 +48,7 @@
     "bridge-url": {
       "type": "string",
       "name": "Bridge URL",
-      "description": "Address of bridge.py (Termux on the phone or a PC on your Wi-Fi).",
+      "description": "PC bridge address on the same Wi-Fi. No Termux is needed on Android.",
       "default": "http://127.0.0.1:8765"
     },
     "object-policy": {
@@ -101,11 +101,6 @@
       "name": "Allow mode changes",
       "default": true
     },
-    "strict-bounds": {
-      "type": "bool",
-      "name": "Keep objects inside area",
-      "default": true
-    },
     "avoid-overlap": {
       "type": "bool",
       "name": "Avoid overlapping solid blocks",
@@ -114,7 +109,7 @@
     "apply-batch": {
       "type": "int",
       "name": "Objects per frame",
-      "default": 50,
+      "default": 10,
       "min": 1,
       "max": 1000
     },
@@ -133,6 +128,21 @@
         "ru",
         "en"
       ]
+    },
+    "model": {
+      "type": "string",
+      "name": "AI model",
+      "default": "",
+      "description": "Empty = CLI default. Use Model in the AI panel for account models."
+    },
+    "account-actions": {
+      "type": "button",
+      "name": "ChatGPT account",
+      "buttons": {
+        "sign-in": "Sign in with ChatGPT",
+        "limits": "Remaining limits"
+      },
+      "description": "Official account login through your PC bridge. No API keys."
     }
   }
 }

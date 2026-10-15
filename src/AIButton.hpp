@@ -9,6 +9,16 @@ class AIButton : public CCLayer {
     CCPoint m_startTouch;
     CCPoint m_startPosition;
     bool m_dragging = false;
+    CCLabelBMFont* m_progress = nullptr;
+
+    void refreshProgress(float) {
+        auto job = static_cast<AIJob*>(m_editor->m_editorUI->getChildByID("ai-builder-job"_spr));
+        m_progress->setVisible(job && job->m_busy);
+        if (job && job->m_busy) {
+            auto text = job->m_applying && job->m_created ? std::to_string(job->m_created->count()) : std::string("...");
+            m_progress->setString(text.c_str());
+        }
+    }
 
     CCPoint bounded(CCPoint p) const {
         auto size = CCDirector::get()->getWinSize();
@@ -32,6 +42,10 @@ class AIButton : public CCLayer {
         ui::recolor(m_visual, ui::kAccent, ui::kSurface);
         m_visual->setPosition({22.f, 22.f});
         addChild(m_visual);
+        m_progress = CCLabelBMFont::create("...", ui::font());
+        m_progress->setScale(.22f); m_progress->setPosition({22.f, -3.f});
+        m_progress->setVisible(false); addChild(m_progress);
+        schedule(schedule_selector(AIButton::refreshProgress), .25f);
         setTouchEnabled(true);
         return true;
     }

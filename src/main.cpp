@@ -4,6 +4,13 @@
 
 using namespace geode::prelude;
 
+$on_mod(Loaded) {
+    ButtonSettingPressedEventV3(Mod::get(), "account-actions").listen([](auto key) {
+        if (key == "sign-in") { if (auto popup = AccountPopup::create()) popup->show(); }
+        else if (key == "limits") { if (auto popup = AccountLimits::create()) popup->show(); }
+    }).leak();
+}
+
 class $modify(AIEditorUI, EditorUI) {
 	bool init(LevelEditorLayer* editor) {
 		if (!EditorUI::init(editor)) return false;
