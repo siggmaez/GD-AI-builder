@@ -17,6 +17,8 @@ class AIPanel : public Popup {
     bool m_decor = false;
     bool m_showPhoto = false;
     size_t m_revision = SIZE_MAX;
+    CCRect m_previewBounds;
+    unsigned int m_previewObjects = 0;
     std::string m_chatSignature;
     async::TaskHolder<web::WebResponse> m_healthRequest;
     async::TaskHolder<file::PickResult> m_picker;
@@ -24,6 +26,7 @@ class AIPanel : public Popup {
     bool init(LevelEditorLayer* editor) {
         if (!Popup::init(590,310,"square02_001.png")) return false;
         m_job = AIJob::get(editor);
+        m_decor = m_job->m_decor;
         m_bgSprite->setColor(ui::kSurface);
         m_bgSprite->setOpacity(static_cast<GLubyte>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("panel-opacity"),80,255)));
         m_closeBtn->setVisible(false);
@@ -110,6 +113,11 @@ class AIPanel : public Popup {
         if(m_photo)m_photo->setVisible(m_showPhoto);
         m_preview->setVisible(!m_showPhoto || !m_photo);
         if(!m_preview->isVisible())return;
+        auto objectCount=m_job->m_editor->m_objects->count();
+        if(m_revision==m_job->revision && objectCount==m_previewObjects &&
+            b.getMinX()==m_previewBounds.getMinX() && b.getMinY()==m_previewBounds.getMinY() &&
+            b.size.width==m_previewBounds.size.width && b.size.height==m_previewBounds.size.height)return;
+        m_revision=m_job->revision;m_previewObjects=objectCount;m_previewBounds=b;
         m_preview->clear();
         float factor=std::min(233.f/std::max(1.f,b.size.width),78.f/std::max(1.f,b.size.height));
         m_preview->drawRect({0,0,b.size.width*factor,b.size.height*factor},{0,0,0,0},.7f,{.4f,.5f,.8f,1});

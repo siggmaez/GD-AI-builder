@@ -41,7 +41,8 @@ public:
     }
     static void append(std::string const& id, std::string const& role, std::string const& text, bool image = false) {
         for (auto& chat : chats()) if (chat["id"].asString().unwrapOr("") == id) {
-            auto list = chat["messages"].asArray().unwrapOr(std::vector<matjson::Value>{});
+            auto array = chat["messages"].asArray();
+            auto list = array ? array.unwrap() : std::vector<matjson::Value>{};
             matjson::Value m; m["role"] = role; m["text"] = text; m["image"] = image;
             list.push_back(m); chat["messages"] = list;
             if (role == "user" && chat["title"].asString().unwrapOr("") == "New chat")

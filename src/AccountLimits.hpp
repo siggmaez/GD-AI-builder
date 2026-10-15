@@ -32,7 +32,7 @@ class AccountLimits : public Popup {
         m_text->setString("Checking account limits...");
         auto url = Mod::get()->getSettingValue<std::string>("bridge-url");
         while (!url.empty() && url.back() == '/') url.pop_back();
-        m_request.spawn(web::WebRequest().timeout(std::chrono::seconds(18)).get(url + "/limits"),
+        m_request.spawn(web::WebRequest().timeout(std::chrono::seconds(30)).get(url + "/limits"),
             [weak = WeakRef(this)](web::WebResponse response) {
                 auto self = weak.lock();
                 if (!self) return;
@@ -47,7 +47,7 @@ class AccountLimits : public Popup {
                         if (!remaining) continue;
                         auto label = minutes == 300 ? "5 hours" : minutes == 10080 ? "Weekly" :
                             std::to_string(minutes) + " min";
-                        text += fmt::format("{}: {:.0f}% remaining\n", label, remaining.unwrap());
+                        text += fmt::format("{}: {:.1f}% remaining\n", label, remaining.unwrap());
                         auto reset = static_cast<std::time_t>(window["resets_at"].asInt().unwrapOr(0));
                         if (reset > 0) {
                             char date[64] = {};
