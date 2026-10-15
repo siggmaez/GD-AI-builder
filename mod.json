@@ -1,45 +1,138 @@
 {
-	"geode": "5.11.1",
-	"gd": {
-		"win": "2.2081",
-		"android": "2.2081",
-		"mac": "2.2081",
-		"ios": "2.2081"
-	},
-	"id": "siggmaez.gd-ai-builder",
-	"name": "AI Builder",
-	"version": "v0.3.0",
-	"developer": "siggmaez",
-	"description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
-	"resources": {
-		"files": ["resources/object-whitelist.json", "resources/ai-builder-font.fnt", "resources/ai-builder-font.png", "resources/font-license.txt"]
-	},
-	"settings": {
-		"cli": {
-			"type": "string",
-			"name": "CLI",
-			"default": "codex",
-			"one-of": ["claude", "codex", "gemini"]
-		},
-		"object-limit": {
-			"type": "int",
-			"name": "Object limit",
-			"default": 300,
-			"min": 1,
-			"max": 1500
-		},
-		"panel-opacity": {
-			"type": "int",
-			"name": "Panel opacity",
-			"default": 240,
-			"min": 80,
-			"max": 255
-		},
-		"bridge-url": {
-			"type": "string",
-			"name": "Bridge URL",
-			"description": "Address of bridge.py (Termux on the phone or a PC on your Wi-Fi).",
-			"default": "http://127.0.0.1:8765"
-		}
-	}
+  "geode": "5.11.1",
+  "gd": {
+    "win": "2.2081",
+    "android": "2.2081",
+    "mac": "2.2081",
+    "ios": "2.2081"
+  },
+  "id": "siggmaez.gd-ai-builder",
+  "name": "AI Builder",
+  "version": "v0.4.0",
+  "developer": "siggmaez",
+  "description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
+  "resources": {
+    "files": [
+      "resources/object-whitelist.json",
+      "resources/ai-builder-font.fnt",
+      "resources/ai-builder-font.png",
+      "resources/font-license.txt",
+      "resources/object-catalog.json"
+    ]
+  },
+  "settings": {
+    "cli": {
+      "type": "string",
+      "name": "CLI",
+      "default": "codex",
+      "one-of": [
+        "claude",
+        "codex",
+        "gemini"
+      ]
+    },
+    "object-limit": {
+      "type": "int",
+      "name": "Object limit",
+      "default": 300,
+      "min": 0,
+      "description": "Maximum objects per generation. 0 = unlimited; large jobs are applied in batches."
+    },
+    "panel-opacity": {
+      "type": "int",
+      "name": "Panel opacity",
+      "default": 240,
+      "min": 80,
+      "max": 255
+    },
+    "bridge-url": {
+      "type": "string",
+      "name": "Bridge URL",
+      "description": "Address of bridge.py (Termux on the phone or a PC on your Wi-Fi).",
+      "default": "http://127.0.0.1:8765"
+    },
+    "object-policy": {
+      "type": "string",
+      "name": "Object library",
+      "default": "all",
+      "one-of": [
+        "all",
+        "curated"
+      ],
+      "description": "All known GD IDs or the compact starter set."
+    },
+    "section-length": {
+      "type": "int",
+      "name": "Section length",
+      "default": 3000,
+      "min": 30,
+      "max": 999000
+    },
+    "area-height": {
+      "type": "int",
+      "name": "Area height",
+      "default": 3000,
+      "min": 30,
+      "max": 30000
+    },
+    "difficulty": {
+      "type": "string",
+      "name": "Difficulty",
+      "default": "normal",
+      "one-of": [
+        "easy",
+        "normal",
+        "hard",
+        "demon"
+      ]
+    },
+    "decor-density": {
+      "type": "string",
+      "name": "Decor density",
+      "default": "medium",
+      "one-of": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "allow-mode-changes": {
+      "type": "bool",
+      "name": "Allow mode changes",
+      "default": true
+    },
+    "strict-bounds": {
+      "type": "bool",
+      "name": "Keep objects inside area",
+      "default": true
+    },
+    "avoid-overlap": {
+      "type": "bool",
+      "name": "Avoid overlapping solid blocks",
+      "default": true
+    },
+    "apply-batch": {
+      "type": "int",
+      "name": "Objects per frame",
+      "default": 50,
+      "min": 1,
+      "max": 1000
+    },
+    "request-timeout": {
+      "type": "int",
+      "name": "Request timeout (seconds)",
+      "default": 180,
+      "min": 15
+    },
+    "reply-language": {
+      "type": "string",
+      "name": "AI reply language",
+      "default": "auto",
+      "one-of": [
+        "auto",
+        "ru",
+        "en"
+      ]
+    }
+  }
 }

@@ -14,10 +14,12 @@
 using namespace geode::prelude;
 
 namespace ui {
-	inline char const* font() {
+	inline char const* inputFont() {
 		static auto path = (Mod::get()->getResourcesDir() / "ai-builder-font.fnt").string();
 		return path.c_str();
 	}
+
+	inline char const* font() { return "bigFont.fnt"; }
 
 	inline std::string limitUTF8(std::string const& text, size_t limit) {
 		size_t count = 0;
@@ -90,7 +92,14 @@ protected:
 	async::TaskHolder<web::WebResponse> m_healthRequest;
 	std::unordered_set<int> m_allowed;
 	CCRect m_bounds;
-	int m_limit = 300;
+	size_t m_limit = 300;
+	int m_timeout = 180;
+	bool m_applying = false;
+	std::vector<matjson::Value> m_pending;
+	size_t m_cursor = 0;
+	Ref<CCArray> m_created;
+	std::unordered_set<std::string> m_placements;
+	std::unordered_set<int64_t> m_solidCells;
 	bool m_requestDecor = false;
 	CCNode* m_pillGame = nullptr;
 	CCNode* m_pillDecor = nullptr;
@@ -119,7 +128,7 @@ protected:
 		root->setPosition(m_size / 2);
 		m_mainLayer->addChild(root);
 
-		auto title = CCLabelBMFont::create("ИИ-строитель", ui::font());
+		auto title = CCLabelBMFont::create("AI Builder", ui::font());
 		title->setScale(0.5f);
 		title->setColor(ui::kText);
 		title->setAnchorPoint({0.f, 0.5f});
@@ -135,13 +144,13 @@ protected:
 			ui::makePill("x", 26.f, 26.f, ui::kIdle, 0.5f), this, menu_selector(AIPanel::onClose));
 		closeBtn->setPosition({W - 22.f, H - 24.f});
 		menu->addChild(closeBtn);
-		auto settings = CCMenuItemSpriteExtra::create(ui::makePill("Настройки", 72.f, 22.f,
+		auto settings = CCMenuItemSpriteExtra::create(ui::makePill("Settings", 72.f, 22.f,
 			ui::kIdle, 0.32f), this, menu_selector(AIPanel::onSettings));
 		settings->setPosition({W - 82.f, H - 24.f});
 		menu->addChild(settings);
 
-		m_pillGame = ui::makePill("Геймплей", 170.f, 30.f, ui::kAccent, 0.42f);
-		m_pillDecor = ui::makePill("Декор", 170.f, 30.f, ui::kIdle, 0.42f);
+		m_pillGame = ui::makePill("Gameplay", 170.f, 30.f, ui::kAccent, 0.42f);
+		m_pillDecor = ui::makePill("Decor", 170.f, 30.f, ui::kIdle, 0.42f);
 		auto bGame = CCMenuItemSpriteExtra::create(m_pillGame, this, menu_selector(AIPanel::onMode));
 		bGame->setTag(0);
 		bGame->setPosition({W / 2 - 90.f, H - 82.f});
@@ -152,7 +161,7 @@ protected:
 		menu->addChild(bDecor);
 		this->refreshMode();
 
-		m_input = TextInput::create(W - 40.f, "Опишите постройку или задайте вопрос...", ui::font());
+		m_input = TextInput::create(W - 40.f, "Prompt in English or Russian...", ui::inputFont());
 		m_input->setPosition({W / 2, 170.f});
 		// Stock 'Any' is ASCII-only. Include Cyrillic explicitly and cap codepoints,
 		// not UTF-8 bytes, so the final Russian letter cannot be cut in half.
@@ -170,36 +179,40 @@ protected:
 		answerBg->setPosition({W / 2, 102.f});
 		answerBg->setColor({12, 14, 19});
 		root->addChild(answerBg);
-		m_answer = CCLabelBMFont::create("Задайте вопрос ИИ или опишите участок и нажмите «Создать».",
-			ui::font(), (W - 60.f) / 0.4f, kCCTextAlignmentLeft);
+		m_answer = CCLabelBMFont::create("Ask AI a question, or describe a section and press Generate.",
+			ui::inputFont(), (W - 60.f) / 0.4f, kCCTextAlignmentLeft);
 		m_answer->setScale(0.4f);
 		m_answer->setColor(ui::kText);
 		m_answer->setAnchorPoint({0.f, 1.f});
 		m_answer->setPosition({30.f, 138.f});
 		root->addChild(m_answer);
 
-		m_status = CCLabelBMFont::create("Готово", ui::font());
+		m_status = CCLabelBMFont::create("Ready", ui::font());
 		m_status->setScale(0.6f);
 		m_status->setColor(ui::kMuted);
 		m_status->setPosition({W / 2, 45.f});
 		root->addChild(m_status);
-		m_healthLabel = CCLabelBMFont::create("Проверка моста...", ui::font());
+		m_healthLabel = CCLabelBMFont::create("Bridge checking...", ui::font());
 		m_healthLabel->setScale(0.45f);
 		m_healthLabel->setColor(ui::kMuted);
 		m_healthLabel->setAnchorPoint({0.f, 0.5f});
 		m_healthLabel->setPosition({22.f, H - 48.f});
 		root->addChild(m_healthLabel);
-		auto refresh = CCMenuItemSpriteExtra::create(ui::makePill("Подключить", 86.f, 20.f,
+		auto refresh = CCMenuItemSpriteExtra::create(ui::makePill("Reconnect", 86.f, 20.f,
 			ui::kIdle, 0.29f), this, menu_selector(AIPanel::onReconnect));
 		refresh->setPosition({W - 62.f, H - 48.f});
 		menu->addChild(refresh);
-		m_askBtn = CCMenuItemSpriteExtra::create(ui::makePill("Спросить ИИ", 156.f, 30.f,
+		auto login = CCMenuItemSpriteExtra::create(ui::makePill("Sign in", 76.f, 20.f,
+			ui::kIdle, 0.29f), this, menu_selector(AIPanel::onLogin));
+		login->setPosition({W - 157.f, H - 48.f});
+		menu->addChild(login);
+		m_askBtn = CCMenuItemSpriteExtra::create(ui::makePill("Ask AI", 156.f, 30.f,
 			ui::kIdle, 0.42f), this, menu_selector(AIPanel::onAsk));
 		m_askBtn->setPosition({W / 2 - 86.f, 23.f});
 		menu->addChild(m_askBtn);
 
 		m_genBtn = CCMenuItemSpriteExtra::create(
-			ui::makePill("Создать", 156.f, 30.f, ui::kAccent, 0.42f), this, menu_selector(AIPanel::onGenerate));
+			ui::makePill("Generate", 156.f, 30.f, ui::kAccent, 0.42f), this, menu_selector(AIPanel::onGenerate));
 		m_genBtn->setPosition({W / 2 + 86.f, 23.f});
 		menu->addChild(m_genBtn);
 		ui::recolor(m_genBtn->getNormalImage(), ui::kAccent, ui::kSurface);
@@ -231,8 +244,9 @@ protected:
 	}
 
 	void tick(float) {
-		setStatus(std::string(m_requestChat ? "Запрос к ИИ... " : "Генерация... ") +
-			std::to_string(++m_elapsed) + " с / 180 с", ui::kMuted);
+		if (m_applying) return;
+		setStatus(std::string(m_requestChat ? "Asking AI... " : "Generating... ") +
+			std::to_string(++m_elapsed) + "s / " + std::to_string(m_timeout) + "s", ui::kMuted);
 	}
 
 	void setBusy(bool b) {
@@ -244,7 +258,7 @@ protected:
 			schedule(schedule_selector(AIPanel::tick), 1.f);
 		}
 		else unschedule(schedule_selector(AIPanel::tick));
-		static_cast<CCLabelBMFont*>(m_genBtn->getNormalImage()->getChildByTag(2))->setString(b ? "Отмена" : "Создать");
+		static_cast<CCLabelBMFont*>(m_genBtn->getNormalImage()->getChildByTag(2))->setString(b ? "Cancel" : "Generate");
 		ui::recolor(m_genBtn->getNormalImage(), b ? ui::kIdle : ui::kAccent, b ? ui::kMuted : ui::kSurface);
 	}
 
@@ -255,20 +269,21 @@ protected:
 	}
 
 	void checkHealth() {
-		m_healthLabel->setString("Проверка моста...");
+		m_healthLabel->setString("Bridge checking...");
 		m_healthRequest.spawn(web::WebRequest().timeout(std::chrono::seconds(4)).get(bridgeURL() + "/health"),
 			[weak = WeakRef(this)](web::WebResponse res) {
 				auto self = weak.lock();
 				if (!self) return;
 				auto json = res.json();
 				bool online = res.ok() && json && json.unwrap()["status"].asString().unwrapOr("") == "ok";
-				self->m_healthLabel->setString(online ? "Мост подключён" : "Мост недоступен");
+				self->m_healthLabel->setString(online ? "Bridge online" : "Bridge offline");
 				self->m_healthLabel->setColor(online ? ui::kGood : ui::kBad);
-				if (!online && !self->m_busy) self->setAnswer("Мост недоступен. Запустите bridge.py и нажмите «Подключить». Проверьте адрес моста в настройках.");
+				if (!online && !self->m_busy) self->setAnswer("Bridge offline. Start bridge.py, then press Reconnect. Check the Bridge URL in Settings.");
 			});
 	}
 
 	void onClose(CCObject* sender) override {
+		if (m_applying) finishApply();
 		Mod::get()->setSavedValue("draft", std::string(m_input->getString()));
 		unschedule(schedule_selector(AIPanel::tick));
 		m_request.cancel();
@@ -277,6 +292,7 @@ protected:
 	}
 
 	void onSettings(CCObject*) { geode::openSettingsPopup(Mod::get()); }
+	void onLogin(CCObject*) { web::openLinkInBrowser(bridgeURL() + "/login"); }
 	void onReconnect(CCObject*) { checkHealth(); }
 	void onAsk(CCObject*) { if (!m_busy) sendRequest(true); }
 
@@ -302,10 +318,11 @@ protected:
 
 	void onGenerate(CCObject*) {
 		if (m_busy) {
+			if (m_applying) { finishApply(); return; }
 			m_request.cancel();
 			setBusy(false);
-			setStatus("Отменено", ui::kMuted);
-			setAnswer("Запрос отменён. Запоздалый ответ не будет применён.");
+			setStatus("Cancelled", ui::kMuted);
+			setAnswer("Request cancelled. No late response will be applied.");
 			return;
 		}
 		sendRequest(false);
@@ -315,24 +332,34 @@ protected:
 		m_requestChat = chat;
 		std::string prompt = m_input->getString();
 		if (prompt.find_first_not_of(" \t\r\n") == std::string::npos)
-			return this->setStatus("Сначала напишите запрос", ui::kBad);
+			return this->setStatus("Write a prompt first", ui::kBad);
 		m_requestDecor = m_decor;
 		Mod::get()->setSavedValue("draft", prompt);
-		m_limit = static_cast<int>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("object-limit"), 1, 1500));
-		if (!loadPolicy()) return setStatus("Белый список объектов отсутствует или повреждён", ui::kBad);
+		m_limit = static_cast<size_t>(std::max<int64_t>(0, Mod::get()->getSettingValue<int64_t>("object-limit")));
+		m_timeout = static_cast<int>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("request-timeout"), 15, INT_MAX));
+		if (!loadPolicy()) return setStatus("Missing or invalid object whitelist", ui::kBad);
 
 		float maxX = 0.f;
 		for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
 			if (std::isfinite(obj->getPositionX())) maxX = std::max(maxX, obj->getPositionX());
 		}
 		maxX = std::clamp(maxX, 0.f, 999000.f);
-		m_bounds = {maxX, 0.f, std::min(3000.f, 999000.f - maxX), 3000.f};
+		auto length = static_cast<float>(Mod::get()->getSettingValue<int64_t>("section-length"));
+		auto height = static_cast<float>(Mod::get()->getSettingValue<int64_t>("area-height"));
+		m_bounds = {maxX, 0.f, std::min(length, 999000.f - maxX), height};
 
 		matjson::Value body;
 		body["mode"] = std::string(m_decor ? "decor" : "gameplay");
 		body["prompt"] = prompt;
 		body["action"] = std::string(chat ? "chat" : "build");
-		body["language"] = "ru";
+		body["language"] = Mod::get()->getSettingValue<std::string>("reply-language");
+		body["object_policy"] = Mod::get()->getSettingValue<std::string>("object-policy");
+		body["difficulty"] = Mod::get()->getSettingValue<std::string>("difficulty");
+		body["decor_density"] = Mod::get()->getSettingValue<std::string>("decor-density");
+		body["strict_bounds"] = Mod::get()->getSettingValue<bool>("strict-bounds");
+		body["allow_mode_changes"] = Mod::get()->getSettingValue<bool>("allow-mode-changes");
+		body["avoid_overlap"] = Mod::get()->getSettingValue<bool>("avoid-overlap");
+		body["timeout"] = m_timeout;
 		body["start_x"] = static_cast<double>(maxX);
 		body["cli"] = Mod::get()->getSettingValue<std::string>("cli");
 		body["max_objects"] = m_limit;
@@ -369,7 +396,7 @@ protected:
 				existing.push_back(std::move(entry));
 				if (existing.size() == 300) break;
 			}
-			if (existing.empty()) return setStatus("Декор: выделите блоки или перейдите к построенному участку", ui::kBad);
+			if (existing.empty()) return setStatus("Decor: select blocks or move to a built area", ui::kBad);
 			body["existing_objects"] = existing;
 			body["start_x"] = m_bounds.getMinX();
 		}
@@ -388,14 +415,14 @@ protected:
 		}
 
 		this->setBusy(true);
-		this->setStatus("Думаю...", ui::kMuted);
-		setAnswer("Ожидаю ответ ИИ. Оставьте панель открытой. Кнопка «Отмена» прекращает ожидание.");
+		this->setStatus("Thinking...", ui::kMuted);
+		setAnswer("Waiting for the selected AI. Keep this panel open; Cancel stops waiting.");
 		log::info("AI request started: action={}, cli={}", chat ? "chat" : "build", Mod::get()->getSettingValue<std::string>("cli"));
 
 		auto url = bridgeURL() + "/generate";
 		web::WebRequest req;
 		req.bodyJSON(body);
-		req.timeout(std::chrono::seconds(180));
+		req.timeout(std::chrono::seconds(m_timeout));
 
 		m_request.spawn(req.post(url), [weak = WeakRef(this)](web::WebResponse res) {
 			auto self = weak.lock();
@@ -405,29 +432,29 @@ protected:
 				self->setBusy(false);
 				auto json = res.json();
 				auto error = json ? json.unwrap()["error"].asString().unwrapOr("") : "";
-				std::string message = "Ошибка HTTP моста: " + std::to_string(res.code());
-				if (res.code() <= 0) message = "Мост недоступен или время ожидания истекло";
-				else if (error == "cli_not_logged_in") message = "Нет входа в CLI: авторизуйтесь в терминале";
-				else if (error == "cli_missing") message = "Выбранный CLI не установлен на устройстве с мостом";
-				else if (error == "invalid_json") message = "ИИ вернул неверный JSON даже после повтора";
-				else if (error == "timeout") message = "Истекло время CLI; сократите запрос";
-				else if (error == "busy") message = "Мост занят; повторите немного позже";
-				else if (error == "cli_failed") message = "Ошибка CLI; проверьте вход и лимиты";
+				std::string message = "Bridge HTTP error " + std::to_string(res.code());
+				if (res.code() <= 0) message = "Bridge offline or request timed out";
+				else if (error == "cli_not_logged_in") message = "CLI not logged in: run login in terminal";
+				else if (error == "cli_missing") message = "Selected CLI not installed on bridge";
+				else if (error == "invalid_json") message = "CLI returned invalid JSON after retry";
+				else if (error == "timeout") message = "CLI timed out; try a shorter prompt";
+				else if (error == "busy") message = "Bridge busy; try again shortly";
+				else if (error == "cli_failed") message = "CLI failed; check login and quota";
 				self->checkHealth();
-				self->setAnswer(message + ". В настройках проверьте адрес моста и выбранный CLI.");
+				self->setAnswer(message + ". Open Settings to check the bridge address and CLI.");
 				return self->setStatus(message, ui::kBad);
 			}
 			auto json = res.json();
 			if (!json) {
 				self->setBusy(false);
-				self->setAnswer("Мост вернул неверный JSON. Обновите или перезапустите bridge.py.");
-				return self->setStatus("Неверный JSON от моста", ui::kBad);
+				self->setAnswer("The bridge returned invalid JSON. Update or restart bridge.py.");
+				return self->setStatus("Bad JSON from bridge", ui::kBad);
 			}
 			auto message = json.unwrap()["message"].asString().unwrapOr("");
 			if (self->m_requestChat) {
 				self->setBusy(false);
-				self->setAnswer(message.empty() ? "Мост не вернул текст. Перезапустите обновлённый bridge.py." : message);
-				self->setStatus(message.empty() ? "Пустой ответ" : "ИИ ответил", message.empty() ? ui::kBad : ui::kGood);
+				self->setAnswer(message.empty() ? "Bridge returned no text. Restart the updated bridge.py." : message);
+				self->setStatus(message.empty() ? "Empty reply" : "AI replied", message.empty() ? ui::kBad : ui::kGood);
 			}
 			else {
 				self->applyObjects(json.unwrap());
@@ -437,20 +464,37 @@ protected:
 	}
 
 	void applyObjects(matjson::Value const& json) {
-		this->setBusy(false);
 		auto arr = json["objects"].asArray();
-		if (!arr) return this->setStatus("Неверный ответ моста", ui::kBad);
+		if (!arr) { setBusy(false); return setStatus("Bad response from bridge", ui::kBad); }
+		m_pending = arr.unwrap();
+		m_cursor = 0;
+		m_created = CCArray::create();
+		m_placements.clear();
+		m_solidCells.clear();
+		for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
+			m_placements.insert(fmt::format("{}:{:.2f}:{:.2f}:{:.2f}", obj->m_objectID, obj->getPositionX(), obj->getPositionY(), obj->getRotation()));
+			if (obj->m_objectType == GameObjectType::Solid) m_solidCells.insert(solidCell(obj->getPosition()));
+		}
+		m_applying = true;
+		schedule(schedule_selector(AIPanel::applyBatch), 0.f);
+	}
 
-		int count = 0;
-		int scanned = 0;
-		auto created = CCArray::create();
-		for (auto const& o : arr.unwrap()) {
-			if (++scanned > 10000 || count >= m_limit) break;
+	int64_t solidCell(CCPoint p) const {
+		return static_cast<int64_t>(std::floor(p.x / 30.f)) * 100000 + static_cast<int64_t>(std::floor(p.y / 30.f));
+	}
+
+	void applyBatch(float) {
+		auto batch = std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("apply-batch"), 1, 1000);
+		for (int64_t n = 0; n < batch && m_cursor < m_pending.size(); ++n) {
+			if (m_limit && m_created->count() >= m_limit) { m_cursor = m_pending.size(); break; }
+			auto const& o = m_pending[m_cursor++];
 			if (!o.isObject()) continue;
 			auto rawID = o["id"].asInt().unwrapOr(0);
 			if (o["id"].asDouble().unwrapOr(0.) != static_cast<double>(rawID)) continue;
 			if (rawID <= 0 || rawID >= 100000 || !m_allowed.contains(static_cast<int>(rawID))) continue;
 			int id = static_cast<int>(rawID);
+			static std::unordered_set<int> const portals = {10,11,12,13,47,99,101,111,200,201,202,203,660,745,1331,1334,1933};
+			if (!Mod::get()->getSettingValue<bool>("allow-mode-changes") && portals.contains(id)) continue;
 			auto px = o["x"].asDouble(); auto py = o["y"].asDouble();
 			if (!px || !py) continue;
 			float x = static_cast<float>(px.unwrap());
@@ -461,10 +505,18 @@ protected:
 			float scale = static_cast<float>(o["scale"].asDouble().unwrapOr(1.0));
 			if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(rot) || !std::isfinite(scale)) continue;
 			if (x < 0.f || x > 999000.f || y < 0.f || y > 30000.f ||
-				!m_bounds.containsPoint({x, y}) || scale < 0.5f || scale > 2.f || std::abs(rot) > 360.f) continue;
+				scale < 0.1f || scale > 10.f || std::abs(rot) > 360.f) continue;
+			bool strict = Mod::get()->getSettingValue<bool>("strict-bounds");
+			if (strict && !m_bounds.containsPoint({x, y})) continue;
+			auto key = fmt::format("{}:{:.2f}:{:.2f}:{:.2f}", id, x, y, rot);
+			if (m_placements.contains(key)) continue;
 
 			auto obj = m_editor->createObject(id, {x, y}, true);
 			if (!obj) continue;
+			if ((m_requestDecor && obj->m_objectType != GameObjectType::Decoration) ||
+				(Mod::get()->getSettingValue<bool>("avoid-overlap") && obj->m_objectType == GameObjectType::Solid && m_solidCells.contains(solidCell({x,y})))) {
+				m_editor->removeObject(obj, true); continue;
+			}
 			if (rot != 0.f) obj->setRotation(rot);
 			if (scale != 1.f) {
 				obj->updateCustomScaleX(scale);
@@ -472,22 +524,33 @@ protected:
 			}
 			// Test the actual footprint, not just the object's center.
 			auto rect = obj->getObjectRect();
-			if (rect.getMinX() < m_bounds.getMinX() - 0.1f || rect.getMaxX() > m_bounds.getMaxX() + 0.1f ||
-				rect.getMinY() < m_bounds.getMinY() - 0.1f || rect.getMaxY() > m_bounds.getMaxY() + 0.1f) {
+			if (strict && (rect.getMinX() < m_bounds.getMinX() - 0.1f || rect.getMaxX() > m_bounds.getMaxX() + 0.1f ||
+				rect.getMinY() < m_bounds.getMinY() - 0.1f || rect.getMaxY() > m_bounds.getMaxY() + 0.1f)) {
 				m_editor->removeObject(obj, true);
 				continue;
 			}
-			created->addObject(obj);
-			count++;
+			m_created->addObject(obj);
+			m_placements.insert(std::move(key));
+			if (obj->m_objectType == GameObjectType::Solid) m_solidCells.insert(solidCell({x,y}));
 		}
+		setStatus("Applying: " + std::to_string(m_created->count()) + " objects", ui::kMuted);
+		if (m_cursor >= m_pending.size()) finishApply();
+	}
+
+	void finishApply() {
+		unschedule(schedule_selector(AIPanel::applyBatch));
+		m_applying = false;
+		auto count = m_created ? m_created->count() : 0;
 		if (count) {
-			m_editor->addToUndoList(UndoObject::createWithArray(created, UndoCommand::Paste), false);
+			m_editor->addToUndoList(UndoObject::createWithArray(m_created, UndoCommand::Paste), false);
 			m_editor->m_editorUI->updateButtons();
 		}
-		this->setStatus(count ? "Добавлено: " + std::to_string(count) + " объектов (одно действие отмены)" :
-			"В ответе нет допустимых объектов", count ? ui::kGood : ui::kBad);
-		setAnswer(count ? "Генерация добавлена. Кнопка отмены уберёт весь участок одним действием." :
-			"Объекты не добавлены. Попросите более простой участок или выберите другую область.");
+		this->setStatus(count ? "Added " + std::to_string(count) + " objects (one undo)" :
+			"No valid objects in response", count ? ui::kGood : ui::kBad);
+		if (!count) setAnswer("No objects were added. Try a simpler section or a different area.");
+		m_pending.clear();
+		m_created = nullptr;
+		setBusy(false);
 	}
 
 public:

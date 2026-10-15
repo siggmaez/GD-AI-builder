@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: ['v*']
 
 jobs:
   bridge-tests:
@@ -40,3 +41,38 @@ jobs:
           name: gd-ai-builder-${{ matrix.target }}
           path: ./build/*.geode
           if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, bridge-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gd-ai-builder-*
+          path: packages
+      - name: Prepare platform packages and bridge
+        shell: bash
+        run: |
+          cp packages/gd-ai-builder-Windows/*.geode AI-Builder-Windows.geode
+          cp packages/gd-ai-builder-Android64/*.geode AI-Builder-Android64.geode
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          with zipfile.ZipFile('AI-Builder-Bridge.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+              for name in ['bridge.py', 'account_login.py', 'README.md']:
+                  z.write(name)
+              for folder in ['resources', 'android']:
+                  for p in Path(folder).rglob('*'):
+                      if p.is_file():
+                          z.write(p)
+          PY
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            AI-Builder-Windows.geode
+            AI-Builder-Android64.geode
+            AI-Builder-Bridge.zip

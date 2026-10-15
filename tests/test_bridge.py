@@ -9,6 +9,10 @@ import bridge
 
 
 class BridgeTests(unittest.TestCase):
+    def setUp(self):
+        login = patch("bridge.has_chatgpt_login", return_value=True)
+        login.start()
+        self.addCleanup(login.stop)
     def ctx(self, **kwargs):
         return bridge.context({"prompt": "short jump", **kwargs})
 
@@ -29,13 +33,37 @@ class BridgeTests(unittest.TestCase):
                 {"id": True, "x": 75, "y": 15}, {"id": 1},
                 {**valid, "x": float("nan")}, {**valid, "y": -1},
                 {**valid, "scale": 100}, {**valid, "rot": "nan"}]
-        out = bridge.validate_objects({"objects": junk + [valid] * 5}, self.ctx(max_objects=2))
+        out = bridge.validate_objects({"objects": junk + [{**valid, "x":75+i*30} for i in range(5)]}, self.ctx(max_objects=2))
         self.assertEqual(len(out["objects"]), 2)
 
     def test_decor_forbids_gameplay_ids(self):
         ctx = self.ctx(mode="decor")
         with self.assertRaises(ValueError):
             bridge.validate_objects({"objects": [{"id": 8, "x": 75, "y": 15}]}, ctx)
+
+    def test_triple_spikes_and_portals_are_allowed(self):
+        objects = [{"id": 8, "x": x, "y": 15} for x in (75, 105, 135)]
+        objects += [{"id": 13, "x": 315, "y": 150}, {"id": 660, "x": 615, "y": 150}]
+        result = bridge.validate_objects({"objects": objects}, self.ctx())
+        self.assertEqual([o["id"] for o in result["objects"]], [8,8,8,13,660])
+
+    def test_unlimited_and_large_limits_are_not_capped_at_1500(self):
+        objects = [{"id": 83, "x": 15 + i / 10, "y": 15} for i in range(2001)]
+        for limit in (0, 100000):
+            result = bridge.validate_objects({"objects": objects}, self.ctx(max_objects=limit))
+            self.assertEqual(len(result["objects"]), 2001)
+
+    def test_duplicates_dropped_and_mode_toggle_honored(self):
+        spike = {"id": 8, "x": 75, "y": 15}
+        portal = {"id": 13, "x": 315, "y": 150}
+        result = bridge.validate_objects({"objects": [spike, spike, portal]}, self.ctx(allow_mode_changes=False))
+        self.assertEqual(len(result["objects"]), 1)
+
+    def test_codex_api_key_login_is_rejected(self):
+        with patch("bridge.has_chatgpt_login", return_value=False):
+            with self.assertRaises(bridge.BridgeError) as err:
+                bridge.run_cli(self.ctx())
+            self.assertEqual(err.exception.code, "cli_not_logged_in")
 
     def test_context_rejects_bad_inputs(self):
         for body in ([], {}, {"prompt": "x", "cli": "shell"}, {"prompt": "x", "start_x": float("inf")},
