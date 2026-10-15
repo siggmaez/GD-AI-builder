@@ -122,6 +122,8 @@ class AIPanel : public Popup {
                 m_input->setString("");Mod::get()->setSavedValue("draft",std::string(""));
             }
             m_image=matjson::Value();m_attachment->setString("");
+            m_showPhoto=false;
+            if(m_photo){m_photo->removeFromParent();m_photo=nullptr;}
         }
         refresh(0);
     }
