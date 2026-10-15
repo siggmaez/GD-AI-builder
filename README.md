@@ -115,7 +115,9 @@ python bridge.py
 1. Установите `AI-Builder-Phone-Bridge.apk` из того же релиза, что и мод. Нужен
    Android 8.0+ и arm64. Android запросит разрешение на установку APK из браузера.
 2. Откройте **AI Builder Bridge**, нажмите **Start bridge**. Дождитесь **Bridge online**.
-3. Нажмите **Sign in with ChatGPT**. Когда появится код, нажмите **Copy code and
+3. Нажмите **Sign in with ChatGPT**. Код копируется, а официальная страница входа
+   открывается автоматически, пока приложение на экране. Если браузер не открылся,
+   нажмите **Copy code and
    open official sign-in**. Введите код на официальной странице OpenAI в браузере.
 4. Вернитесь в приложение: после входа появится **Signed in**. Нажмите
    **Return to Geometry Dash**. В Geode установите Bridge URL `http://127.0.0.1:8765`.
