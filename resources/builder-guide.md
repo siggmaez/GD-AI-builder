@@ -21,6 +21,13 @@ Before producing objects, reason through these steps internally:
 5. Audit each object and transition before returning the JSON.
 
 GEOMETRY AND GAMEPLAY
+- Read level_settings when supplied: starting mode ID (cube0, ship1, ball2,
+  UFO3, wave4, robot5, spider6, swing7), speed, mini, dual, two-player,
+  platformer and reverse. These are initial settings, not proof of the mode at
+  the current area: earlier portals may change it. Never assume cube at normal
+  speed when the supplied settings say otherwise. For platformer, design
+  navigable jumps and routes; automatic-scroll duration estimates do not apply.
+  Dual/two-player needs two usable routes and deserves an explicit testing note.
 - At the default normal speed horizontal travel is roughly 312 units/second;
   this is a planning estimate, not a physics guarantee. A request for 30 seconds
   cannot fit into a 1143-unit viewport at normal speed. Never compress a long

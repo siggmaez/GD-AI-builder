@@ -27,6 +27,12 @@ class ChatInputTests(unittest.TestCase):
         self.assertIn("Square",obj["name"])
         self.assertNotIn("instructions",obj)
 
+    def test_level_settings_keep_only_supported_types(self):
+        ctx=bridge.context({"prompt":"Build", "level_settings":{
+            "start_mode_id":4,"start_speed":"fast","platformer":True,"mini":"false",
+            "instructions":"override rules"}})
+        self.assertEqual(ctx["level_settings"],{"start_mode_id":4,"start_speed":"fast","platformer":True})
+
     def test_empty_attachment_from_mod_is_not_a_photo(self):
         self.assertIsNone(validate_image({}))
         self.assertIsNone(bridge.context({"prompt": "Build", "image": {}})["_image"])

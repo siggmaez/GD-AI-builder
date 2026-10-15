@@ -203,6 +203,17 @@ public:
         }
         body["existing_objects"] = existing;
         body["existing_context_truncated"] = areaObjectCount > existing.size();
+        if(auto settings=m_editor->m_levelSettings){
+            matjson::Value level;
+            level["start_mode_id"]=settings->m_startMode;
+            auto speed=static_cast<int>(settings->m_startSpeed);
+            static char const* speeds[]={"normal","slow","fast","faster","fastest"};
+            level["start_speed"]=std::string(speed>=0&&speed<5?speeds[speed]:"unknown");
+            level["mini"]=settings->m_startMini;level["dual"]=settings->m_startDual;
+            level["two_player"]=settings->m_twoPlayerMode;level["platformer"]=settings->m_platformerMode;
+            level["reverse"]=settings->m_reverseGameplay;
+            body["level_settings"]=level;
+        }
         ChatStore::append(m_chat, "user", prompt, hasImage);
 
 		drawBounds();

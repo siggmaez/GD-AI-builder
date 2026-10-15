@@ -138,6 +138,16 @@ def context(body):
     area = body.get("area", "View")
     if area not in ("View", "Selection", "Extend"):
         raise BridgeError("bad_request", "Unknown target area", 400)
+    level_settings = {}
+    supplied = body.get("level_settings", {})
+    if isinstance(supplied,dict):
+        for key in ("mini","dual","two_player","platformer","reverse"):
+            if type(supplied.get(key)) is bool:
+                level_settings[key]=supplied[key]
+        if type(supplied.get("start_mode_id")) is int and 0 <= supplied["start_mode_id"] <= 7:
+            level_settings["start_mode_id"]=supplied["start_mode_id"]
+        if supplied.get("start_speed") in ("normal","slow","fast","faster","fastest"):
+            level_settings["start_speed"]=supplied["start_speed"]
     language = body.get("language", "auto")
     if language not in ("auto", "ru", "en"):
         raise BridgeError("bad_request", "Unknown language", 400)
@@ -175,6 +185,7 @@ def context(body):
             "difficulty": str(body.get("difficulty", "normal"))[:24],
             "decor_density": str(body.get("decor_density", "medium"))[:24], **settings,
             "area": area, "existing_context_truncated": body.get("existing_context_truncated") is True,
+            "level_settings": level_settings,
             "existing_objects": existing, "allowed_ids": ids,
             "common_ids": {i: CATALOG[str(i)] for i in ids if i < 220 or i in (503, 504, 505, 660, 745, 1011, 1292, 1331, 1334, 1933)}}
 

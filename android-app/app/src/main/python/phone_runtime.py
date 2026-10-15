@@ -42,12 +42,14 @@ def start(native_directory, private_directory, cache_directory):
             sys.path.insert(0, bridge_path)
         _error = ''
         try:
-            version = subprocess.run([str(executable), '--version'], capture_output=True,
+            _bridge = importlib.import_module('bridge')
+            # Exercise the same process/session path used by cancellable jobs.
+            version = _bridge.cancellable_run([str(executable), '--version'],
+                                     cancel=threading.Event(), capture_output=True,
                                      encoding='utf-8', errors='replace', timeout=15)
             if version.returncode:
                 raise RuntimeError('The native Codex runtime could not start on this Android device.')
             _version = version.stdout.strip()[:80]
-            _bridge = importlib.import_module('bridge')
             server = ThreadingHTTPServer(('127.0.0.1', 8765), _bridge.Handler)
             server.daemon_threads = True
             _server = server
