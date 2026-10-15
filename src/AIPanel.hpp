@@ -53,7 +53,7 @@ namespace ui {
 		auto node = makePill(text, d, d, col, 0.45f);
 		auto old = node->getChildByTag(1);
 		old->removeFromParent();
-		auto circle = CCSprite::createWithSpriteFrameName("GJ_button_01.png");
+		auto circle = CCSprite::create("GJ_button_01.png");
 		circle->setScale(d / circle->getContentSize().width);
 		circle->setPosition({d / 2, d / 2});
 		circle->setColor(col);
