@@ -153,10 +153,18 @@ class HistoryPopup : public Popup {
         for (auto it=chats.rbegin();it!=chats.rend();++it) {
             auto id=(*it)["id"].asString().unwrapOr("");
             auto title=(*it)["title"].asString().unwrapOr("Chat");
-            auto pill=ui::makePill("",290,28,ui::kIdle);
-            auto label=ui::label(pill,title,{145,14},.38f,true); label->limitLabelWidth(270,.38f,.2f);
+            auto pill=ui::makePill("",252,28,ui::kIdle);
+            auto label=ui::label(pill,title,{126,14},.38f,true); label->limitLabelWidth(235,.38f,.2f);
             auto item=CCMenuItemExt::createSpriteExtra(pill,[this,id](auto){ChatStore::select(id); ChatStore::save(); onClose(nullptr);});
-            item->setPosition({155,y});menu->addChild(item);y-=34;
+            item->setPosition({136,y});menu->addChild(item);
+            ui::button(menu,"x",{290,y},24,[weak=WeakRef(this),id](auto){
+                createQuickPopup("Delete chat","Delete this chat and its local messages?","Cancel","Delete",
+                    [weak,id](auto,bool confirmed){
+                        auto self=weak.lock();if(!self||!confirmed)return;
+                        ChatStore::remove(id);self->onClose(nullptr);
+                    });
+            });
+            y-=34;
         }
         list->scrollToTop();
         ui::button(m_buttonMenu,"New chat",{175,28},150,[this](auto){ChatStore::newChat();onClose(nullptr);},ui::kAccent);

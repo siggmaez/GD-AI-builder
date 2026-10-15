@@ -29,6 +29,11 @@ public:
         return id;
     }
     static void select(std::string const& id) { Mod::get()->setSavedValue("active-chat", id); }
+    static void remove(std::string const& id) {
+        auto& list=chats();
+        std::erase_if(list,[&](auto const& chat){return chat["id"].asString().unwrapOr("")==id;});
+        (void)active(); save();
+    }
     static std::string active() {
         auto id = Mod::get()->getSavedValue<std::string>("active-chat", "");
         for (auto const& chat : chats()) if (chat["id"].asString().unwrapOr("") == id) return id;

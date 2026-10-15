@@ -11,6 +11,7 @@ public:
     size_t revision = 0;
     bool m_busy = false, m_applying = false, m_requestChat = false;
     bool m_requestDecor = false, m_decor = false;
+    bool m_previewReady = false;
     CCRect m_bounds;
     std::string area = "View";
     async::TaskHolder<web::WebResponse> m_request;
@@ -67,6 +68,11 @@ public:
     }
     void cancel() {
         m_request.cancel();
+        if (m_previewReady) {
+            m_previewReady = false; m_pending.clear(); setBusy(false);
+            setStatus("Preview discarded", ui::kMuted);
+            setAnswer("Preview discarded. No objects were added."); return;
+        }
         if (m_applying) finishApply();
         setBusy(false); setStatus("Stopped", ui::kMuted);
         setAnswer("Stopped. Objects already placed remain in one undo step.");
@@ -241,6 +247,20 @@ public:
 		auto arr = json["objects"].asArray();
 		if (!arr) { setBusy(false); return setStatus("Bad response from bridge", ui::kBad); }
 		m_pending = arr.unwrap();
+		if (m_pending.empty()) {
+			setBusy(false); setStatus("AI replied; no objects to add", ui::kMuted); return;
+		}
+		if (Mod::get()->getSettingValue<bool>("preview-before-build")) {
+			m_previewReady = true;
+			unschedule(schedule_selector(AIJob::tick));
+			setStatus(fmt::format("Preview: {} objects | Keep or Discard", m_pending.size()), ui::kGood);
+			return;
+		}
+		beginApply();
+	}
+
+	void beginApply() {
+		m_previewReady = false;
 		m_cursor = 0;
 		m_created = CCArray::create();
 		m_placements.clear();

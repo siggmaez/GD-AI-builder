@@ -145,6 +145,12 @@
       },
       "description": "Run a bridge on this phone or connect to your PC. Official ChatGPT account sign-in, no API keys."
     },
+    "preview-before-build": {
+      "type": "bool",
+      "name": "Preview before placing objects",
+      "default": false,
+      "description": "Generate shows planned centers in green. Keep adds the result; Discard leaves the level unchanged. Actual footprints are checked on Keep."
+    },
     "clear-prompt": {
       "type": "bool",
       "name": "Clear prompt after sending",

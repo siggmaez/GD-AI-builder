@@ -10,6 +10,7 @@ class AIPanel : public Popup {
     ScrollLayer* m_chat = nullptr;
     CCLabelBMFont *m_status = nullptr, *m_health = nullptr, *m_model = nullptr, *m_area = nullptr, *m_attachment = nullptr;
     CCMenuItemSpriteExtra* m_generate = nullptr;
+    CCMenuItemSpriteExtra* m_discard = nullptr;
     CCMenuItemSpriteExtra *m_referenceButton = nullptr, *m_areaButton = nullptr;
     CCNode *m_gamePill = nullptr, *m_decorPill = nullptr;
     CCDrawNode* m_preview = nullptr;
@@ -55,6 +56,7 @@ class AIPanel : public Popup {
                 "<cg>Generate</c>: build inside the outlined area.\n"
                 "<cy>View</c>: visible editor. <cy>Selection</c>: selected objects. <cy>Extend</c>: after level end.\n"
                 "<cg>+</c>: attach a reference photo. <cg>Reuse</c>: copy your last prompt.\n"
+                "Enable Preview before placing in Settings for Keep / Discard. Green dots show planned centers.\n"
                 "You can close this window while building. One undo removes a generation.\n"
                 "For long sections use Extend and increase Section length in More > Settings.","OK")->show();
         });
@@ -73,6 +75,8 @@ class AIPanel : public Popup {
         m_preview=CCDrawNode::create();m_preview->setPosition({230,114});root->addChild(m_preview);
         m_referenceButton=ui::button(menu,"Reference",{390,210},90,[this](auto){m_showPhoto=!m_showPhoto;refresh(0);});
         m_referenceButton->setVisible(false);
+        m_discard=ui::button(menu,"Discard",{277,210},90,[this](auto){m_job->cancel();refresh(0);});
+        m_discard->setVisible(false);
         m_area=ui::label(root,"Area",{335,101},.25f);
         m_areaButton=ui::button(menu,"Area: View >",{335,80},218,[this](auto){
             if(m_job->m_busy)return;
@@ -106,7 +110,10 @@ class AIPanel : public Popup {
         });
         m_attachment=ui::label(root,"",{76,21},.24f,true);
         ui::button(menu,"Ask AI",{165,21},90,[this](auto){send(true);});
-        m_generate=ui::button(menu,"Generate",{335,26},218,[this](auto){if(m_job->m_busy)m_job->cancel();else send(false);},ui::kAccent);
+        m_generate=ui::button(menu,"Generate",{335,26},218,[this](auto){
+            if(m_job->m_previewReady)m_job->beginApply();
+            else if(m_job->m_busy)m_job->cancel();else send(false);
+        },ui::kAccent);
         mode();refresh(0);checkHealth();schedule(schedule_selector(AIPanel::refresh),.25f);
         return true;
     }
@@ -133,7 +140,8 @@ class AIPanel : public Popup {
         auto model=Mod::get()->getSettingValue<std::string>("model");
         m_model->setString(model.empty()?"CLI default":model.c_str());m_model->limitLabelWidth(180,.3f,.18f);
         m_input->setEnabled(!m_job->m_busy);
-        static_cast<CCLabelBMFont*>(m_generate->getNormalImage()->getChildByTag(2))->setString(m_job->m_busy?"Stop":"Generate");
+        static_cast<CCLabelBMFont*>(m_generate->getNormalImage()->getChildByTag(2))->setString(m_job->m_previewReady?"Keep":m_job->m_busy?"Stop":"Generate");
+        m_discard->setVisible(m_job->m_previewReady);
         m_status->setString(m_job->status.c_str());m_status->setColor(m_job->statusColor);m_status->limitLabelWidth(218,.29f,.18f);
         auto id=ChatStore::active();auto messages=ChatStore::messages(id);
         auto signature=id+":"+std::to_string(messages.size());
@@ -164,6 +172,18 @@ class AIPanel : public Popup {
             m_preview->drawRect({(x-b.getMinX())*factor,(y-b.getMinY())*factor,std::max(.8f,(right-x)*factor),std::max(.8f,(top-y)*factor)},
                 {.5f,.6f,.85f,.8f},0,{0,0,0,0});
             if(++count>=2000)break;
+        }
+        if(m_job->m_previewReady){
+            size_t shown=0;
+            for(auto const& object:m_job->m_pending){
+                auto x=object["x"].asDouble();auto y=object["y"].asDouble();
+                if(!x||!y||!std::isfinite(x.unwrap())||!std::isfinite(y.unwrap()))continue;
+                if(!b.containsPoint({static_cast<float>(x.unwrap()),static_cast<float>(y.unwrap())}))continue;
+                // Planned centers; actual footprints are checked by GD on Keep.
+                m_preview->drawDot({static_cast<float>(x.unwrap()-b.getMinX())*factor,
+                    static_cast<float>(y.unwrap()-b.getMinY())*factor},1.3f,{.45f,1.f,.65f,1.f});
+                if(++shown>=2000)break;
+            }
         }
     }
     void renderChat(std::vector<matjson::Value> const& messages){
