@@ -1,0 +1,22 @@
+{
+	"geode": "5.11.1",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "siggmaez.gd-ai-builder",
+	"name": "AI Builder",
+	"version": "v0.1.0",
+	"developer": "siggmaez",
+	"description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
+	"settings": {
+		"bridge-url": {
+			"type": "string",
+			"name": "Bridge URL",
+			"description": "Address of bridge.py (Termux on the phone or a PC on your Wi-Fi).",
+			"default": "http://127.0.0.1:8765"
+		}
+	}
+}

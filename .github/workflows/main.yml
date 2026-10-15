@@ -7,16 +7,26 @@ on:
 
 jobs:
   build:
-    name: Android64
-    runs-on: ubuntu-latest
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: Windows
+          - os: ubuntu-latest
+            target: Android64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          target: Android64
+          target: ${{ matrix.target }}
+          sdk: latest
           combine: true
       - uses: actions/upload-artifact@v4
         with:
-          name: gd-ai-builder
+          name: gd-ai-builder-${{ matrix.target }}
           path: ./build/*.geode
+          if-no-files-found: error
