@@ -11,7 +11,30 @@
 	"version": "v0.1.0",
 	"developer": "siggmaez",
 	"description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
+	"resources": {
+		"files": ["resources/object-whitelist.json"]
+	},
 	"settings": {
+		"cli": {
+			"type": "string",
+			"name": "CLI",
+			"default": "codex",
+			"one-of": ["claude", "codex", "gemini"]
+		},
+		"object-limit": {
+			"type": "int",
+			"name": "Object limit",
+			"default": 300,
+			"min": 1,
+			"max": 1500
+		},
+		"panel-opacity": {
+			"type": "int",
+			"name": "Panel opacity",
+			"default": 240,
+			"min": 80,
+			"max": 255
+		},
 		"bridge-url": {
 			"type": "string",
 			"name": "Bridge URL",
