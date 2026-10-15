@@ -40,6 +40,34 @@ try:
     adb('shell','uiautomator','dump','/sdcard/window.xml')
     xml=adb('shell','cat','/sdcard/window.xml')
     assert 'Bridge online' in xml
+    # Exercise sign-in on the actual native binary, without completing login or
+    # recording a device code. CI networks may be denied by the auth service.
+    sign_in=next(node for node in ET.fromstring(xml).iter('node') if node.get('text')=='Sign in with ChatGPT')
+    import re
+    bounds=list(map(int,re.findall(r'\d+',sign_in.get('bounds'))))
+    adb('shell','input','tap',str((bounds[0]+bounds[2])//2),str((bounds[1]+bounds[3])//2))
+    deadline=time.monotonic()+70
+    while True:
+        auth=request('/auth/status')
+        if auth['state'] in ('waiting','error'):
+            if auth['state']=='waiting' and not auth.get('code'):
+                pass
+            else:
+                break
+        if time.monotonic()>deadline:
+            raise AssertionError('Phone sign-in never produced a code or an actionable error')
+        time.sleep(1)
+    if auth['state']=='error':
+        assert 'Check that Codex CLI is installed' not in auth['message'], auth['message']
+        print('Phone sign-in returned a safe diagnostic: '+auth['message'])
+    else:
+        assert auth['url'].startswith('https://auth.openai.com/')
+        print('Phone sign-in produced an official URL and device code (not logged).')
+    # Automatic browser opening is intentional; return to the app for Stop.
+    adb('shell','am','start','-n',PACKAGE+'/.MainActivity')
+    time.sleep(2)
+    adb('shell','uiautomator','dump','/sdcard/window.xml')
+    xml=adb('shell','cat','/sdcard/window.xml')
     root=ET.fromstring(xml)
     import re
     stop=next(node for node in root.iter('node') if node.get('text')=='Stop bridge')

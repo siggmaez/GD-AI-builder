@@ -2,12 +2,18 @@ name: Android phone bridge
 
 on:
   workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: 'Reuse native Codex artifacts from a successful run (optional)'
+        required: false
+        default: ''
   push:
     branches: [main]
     paths: ['android-app/**', '.github/workflows/android-bridge.yml']
 
 jobs:
   codex-android:
+    if: ${{ !inputs.native_run_id }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -66,6 +72,7 @@ jobs:
             upstream-codex/NOTICE
   apk:
     needs: codex-android
+    if: ${{ always() && (needs.codex-android.result == 'success' || needs.codex-android.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +83,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.11.1' }
       - uses: actions/download-artifact@v4
-        with: { pattern: 'codex-*', path: native }
+        with:
+          pattern: 'codex-*'
+          path: native
+          run-id: ${{ inputs.native_run_id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Package native runtimes and licenses
         shell: bash
         run: |

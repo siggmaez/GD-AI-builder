@@ -34,3 +34,17 @@ class AccountTests(unittest.TestCase):
             login.worker(lambda *x: list(x))
             spawn.assert_not_called()
         self.assertEqual(login.snapshot()["state"], "signed_in")
+
+    def test_network_failure_is_actionable_and_does_not_leak_output(self):
+        login = account_login.AccountLogin()
+        process = Mock(stdout=io.StringIO("device code request failed with status 403 Forbidden secret-token\n"))
+        with patch("account_login.has_chatgpt_login", return_value=False), patch("account_login.subprocess.Popen", return_value=process):
+            login.worker(lambda *args: list(args))
+        state = login.snapshot()
+        self.assertEqual(state["state"], "error")
+        self.assertIn("403", state["message"])
+        self.assertNotIn("secret-token", str(state))
+
+    def test_startup_timeout_explains_missing_code(self):
+        self.assertIn("45 seconds", account_login.login_error("", timed_out=True))
+        self.assertIn("secure connection", account_login.login_error("certificate verify failed"))

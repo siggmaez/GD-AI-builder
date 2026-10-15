@@ -16,6 +16,7 @@ public final class MainActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView status, account, code, address, error;
     private String authUrl = "", authCode = "";
+    private boolean openLoginWhenReady;
     private final Runnable refresh = new Runnable() { public void run() { render(); handler.postDelayed(this, 1000); } };
 
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
@@ -49,12 +50,16 @@ public final class MainActivity extends Activity {
         text(column,"ChatGPT account",20,Color.WHITE);
         account = text(column,"Start the bridge, then sign in.",14,Color.LTGRAY);
         code = text(column,"",30,Color.WHITE); code.setTypeface(Typeface.MONOSPACE);
-        button(column,"Sign in with ChatGPT",true,v -> command(BridgeService.SIGN_IN));
-        button(column,"Copy code and open official sign-in",false,v -> {
-            if (!authUrl.startsWith("https://auth.openai.com/")) { toast("Press Sign in and wait for the code."); return; }
-            ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Device code",authCode));
-            startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(authUrl)));
+        button(column,"Sign in with ChatGPT",true,v -> {
+            openLoginWhenReady=true;
+            account.setText("Starting bridge and requesting a login code...");
+            command(BridgeService.SIGN_IN);
         });
+        button(column,"Copy code and open official sign-in",false,v -> {
+            if (authCode.isEmpty()) { toast("No code yet. Press Sign in and check the status message."); return; }
+            openOfficialLogin();
+        });
+        button(column,"Open ChatGPT security settings",false,v -> startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://chatgpt.com/#settings/Security"))));
         button(column,"Copy bridge URL",false,v -> {
             ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Bridge URL","http://127.0.0.1:8765"));
             toast("Copied. Paste into Geode > AI Builder > Bridge URL.");
@@ -76,6 +81,12 @@ public final class MainActivity extends Activity {
         catch (Exception exception) { toast("Android could not start the foreground bridge. Open this app and retry."); }
     }
     private void toast(String text) { Toast.makeText(this,text,Toast.LENGTH_LONG).show(); }
+    private void openOfficialLogin() {
+        if (!authUrl.startsWith("https://auth.openai.com/")) return;
+        ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Device code",authCode));
+        try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(authUrl))); }
+        catch (ActivityNotFoundException exception) { toast("Install or enable a browser to open the official sign-in page."); }
+    }
     private void render() {
         try {
             var data=new JSONObject(BridgeService.snapshot); boolean running=data.optBoolean("running");
@@ -84,6 +95,11 @@ public final class MainActivity extends Activity {
             if(auth!=null) {
                 account.setText(auth.optString("message","Sign in with your ChatGPT account."));
                 authCode=auth.optString("code","");authUrl=auth.optString("url","");code.setText(authCode);
+                if (openLoginWhenReady && !authCode.isEmpty()) {
+                    openLoginWhenReady=false;
+                    openOfficialLogin();
+                }
+                if ("error".equals(auth.optString("state")) || "signed_in".equals(auth.optString("state"))) openLoginWhenReady=false;
             }
             error.setText(BridgeService.lastError);
         } catch(Exception ignored) { error.setText("Unable to read bridge status."); }
