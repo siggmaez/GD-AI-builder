@@ -150,7 +150,7 @@ class AIPanel : public Popup {
         m_status->setString(m_job->status.c_str());m_status->setColor(m_job->statusColor);m_status->limitLabelWidth(218,.29f,.18f);
         auto id=ChatStore::active();auto messages=ChatStore::messages(id);
         if(id!=m_displayChat){
-            Mod::get()->setSavedValue("draft-"+m_displayChat,m_input->getString());
+            Mod::get()->setSavedValue("draft-"+m_displayChat,std::string(m_input->getString()));
             m_displayChat=id;
             m_input->setString(Mod::get()->getSavedValue<std::string>("draft-"+id,""));
         }
