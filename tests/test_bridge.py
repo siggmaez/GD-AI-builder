@@ -39,7 +39,8 @@ class BridgeTests(unittest.TestCase):
 
     def test_context_rejects_bad_inputs(self):
         for body in ([], {}, {"prompt": "x", "cli": "shell"}, {"prompt": "x", "start_x": float("inf")},
-                     {"prompt": "x", "bounds": {}}, {"prompt": "x", "max_objects": True}):
+                     {"prompt": "x", "bounds": {}}, {"prompt": "x", "max_objects": True},
+                     {"prompt": "x", "cli": []}, {"prompt": "x", "start_x": 10 ** 1000}):
             with self.assertRaises(bridge.BridgeError):
                 bridge.context(body)
 

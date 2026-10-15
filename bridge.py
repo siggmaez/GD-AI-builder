@@ -49,14 +49,17 @@ class BridgeError(Exception):
 
 
 def number(v):
-    return type(v) in (int, float) and math.isfinite(v)
+    try:
+        return type(v) in (int, float) and math.isfinite(v)
+    except OverflowError:
+        return False
 
 
 def context(body):
     if not isinstance(body, dict):
         raise BridgeError("bad_request", "Expected a JSON object", 400)
     mode, cli, prompt = body.get("mode", "gameplay"), body.get("cli", CLI), body.get("prompt")
-    if mode not in ("gameplay", "decor") or cli not in COMMANDS:
+    if not isinstance(mode, str) or not isinstance(cli, str) or mode not in ("gameplay", "decor") or cli not in COMMANDS:
         raise BridgeError("bad_request", "Unknown mode or CLI", 400)
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 300:
         raise BridgeError("bad_request", "Prompt must have 1-300 characters", 400)
