@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB SOURCES src/*.cpp)
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
+if (MSVC)
+	target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
+endif()
 
 if (NOT DEFINED ENV{GEODE_SDK})
 	message(FATAL_ERROR "Define the GEODE_SDK environment variable")

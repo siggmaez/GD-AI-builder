@@ -52,6 +52,30 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             bridge.validate_objects({"objects": []}, ctx)
 
+    def test_russian_context_roundtrip_and_character_limit(self):
+        prompt = 'Ёжик, сделай лёгкий геймплей — «прыжок» №1!'
+        ctx = self.ctx(prompt=prompt, language="ru")
+        self.assertEqual(json.loads(json.dumps(ctx, ensure_ascii=False))["prompt"], prompt)
+        self.assertEqual(ctx["language"], "ru")
+        self.assertEqual(len(self.ctx(prompt="ё" * 300)["prompt"]), 300)
+        with self.assertRaises(bridge.BridgeError):
+            self.ctx(prompt="ё" * 301)
+
+    def test_bundled_font_has_russian_alphabet_and_valid_atlas_rects(self):
+        from pathlib import Path
+        import re
+        font = (Path(bridge.__file__).parent / "resources/ai-builder-font.fnt").read_text(encoding="utf-8")
+        glyphs = {}
+        for line in font.splitlines():
+            if line.startswith("char "):
+                values = {key: int(value) for key, value in re.findall(r"(\w+)=(-?\d+)", line)}
+                glyphs[values["id"]] = values
+        for char in "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя«»—№":
+            self.assertIn(ord(char), glyphs)
+        for v in glyphs.values():
+            self.assertTrue(0 <= v["x"] <= v["x"] + v["width"] <= 1024)
+            self.assertTrue(0 <= v["y"] <= v["y"] + v["height"] <= 2048)
+
     def test_build_preserves_short_ai_message(self):
         result = bridge.validate_objects({"objects": [], "message": "a" * 1000}, self.ctx())
         self.assertEqual(len(result["message"]), 220)

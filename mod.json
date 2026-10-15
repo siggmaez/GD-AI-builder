@@ -8,11 +8,11 @@
 	},
 	"id": "siggmaez.gd-ai-builder",
 	"name": "AI Builder",
-	"version": "v0.2.0",
+	"version": "v0.3.0",
 	"developer": "siggmaez",
 	"description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
 	"resources": {
-		"files": ["resources/object-whitelist.json"]
+		"files": ["resources/object-whitelist.json", "resources/ai-builder-font.fnt", "resources/ai-builder-font.png", "resources/font-license.txt"]
 	},
 	"settings": {
 		"cli": {
