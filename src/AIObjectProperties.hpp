@@ -54,11 +54,11 @@ public:
         }
         for(auto const& color:colors.unwrap()){
             auto component=[&](char const* key){return static_cast<GLubyte>(std::clamp<int64_t>(color[key].asInt().unwrapOr(255),0,255));};
-            auto action=ColorAction::create({component("r"),component("g"),component("b")},color["blending"].asBool().unwrapOr(false),0);
+            auto action=ColorAction::create({component("r"),component("g"),component("b")},color["blending"].asBool().unwrapOr(false),-1);
             float opacity=static_cast<float>(std::clamp(color["opacity"].asDouble().unwrapOr(1.),0.,1.));
             action->m_fromOpacity=opacity;action->m_toOpacity=opacity;action->m_currentOpacity=opacity;
             manager->setColorAction(action,m_colors.at(color["id"].asInt().unwrapOr(0)));
-            manager->updateColorAction(action);
+            if(action->m_colorSprite)manager->updateColorAction(action);
         }
         return true;
     }
