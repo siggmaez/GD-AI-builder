@@ -12,17 +12,19 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 from account_login import AccountLogin, account_env, has_chatgpt_login
+from chat_inputs import valid_model, model_list, history_messages, validate_image, image_file
+from account_limits import cached_limits
 
 CLI = os.environ.get("BRIDGE_CLI", "codex")
 HOST = os.environ.get("BRIDGE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BRIDGE_PORT", "8765"))
 TIMEOUT = 150
-MAX_BODY = 256 * 1024
+MAX_BODY = 8 * 1024 * 1024
 SLOTS = threading.BoundedSemaphore(2)
 ACCOUNT = AccountLogin()
 COMMANDS = {
     "claude": lambda exe, p: [exe, "-p"],
-    "codex": lambda exe, p: [exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "-c", 'model_provider="openai"', "-"],
+    "codex": lambda exe, p: [exe, "exec", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check", "-c", 'model_provider="openai"', "-"],
     "gemini": lambda exe, p: [exe, "-p", "Follow the supplied stdin prompt and return the requested JSON."],
 }
 POLICY = json.loads((Path(__file__).parent / "resources" / "object-whitelist.json").read_text(encoding="utf-8"))
@@ -43,6 +45,9 @@ CONSTRUCTION RULES, NOT CREATIVE BANS:
 - Coordinates are absolute. bounds is the requested rectangle; when strict_bounds
   is true, full object footprints must fit. Preserve ALL existing objects: only
   add new ones, never delete, move, recolor or retarget the player's existing work.
+  editor_bounds and target bounds are hard placement limits, irrespective of style.
+  A supplied image is a design reference, not permission to leave those bounds.
+  Use history for conversational continuity; the current editor context is authoritative.
 - Standard tiles: 30 units; centers 15+30*n. Account for the real size/origin of
   non-square objects. Adjacent platform tiles touch, not overlap. Avoid duplicate
   placements, hazards inside solids, disconnected filler piles and unreadable decor.
@@ -118,6 +123,20 @@ def context(body):
         raise BridgeError("bad_request", "Unknown language", 400)
     if limit < 0:
         raise BridgeError("bad_request", "Negative object limit", 400)
+    model = body.get("model", "")
+    if not valid_model(model):
+        raise BridgeError("bad_request", "Invalid model name", 400)
+    try:
+        history = history_messages(body.get("history", []))
+        image = validate_image(body.get("image"))
+    except ValueError as e:
+        raise BridgeError("bad_request", str(e), 400)
+    if image and cli != "codex":
+        raise BridgeError("image_unsupported", "Image attachments currently require Codex CLI", 400)
+    if image and model:
+        match = next((m for m in model_list(cli) if m["id"] == model), None)
+        if match and not match["images"]:
+            raise BridgeError("image_unsupported", "Selected model does not support images", 400)
     ids = POLICY[mode]
     if body.get("object_policy") == "curated":
         ids = [i for i in ids if i < 1500]
@@ -131,6 +150,8 @@ def context(body):
         raise BridgeError("bad_request", "Invalid timeout", 400)
     return {"mode": mode, "cli": cli, "action": action, "language": language, "prompt": prompt.strip(), "start_x": start,
             "max_objects": limit, "bounds": bounds, "timeout": timeout,
+            "model": model, "history": history, "_image": image,
+            "editor_bounds": bounds,
             "difficulty": str(body.get("difficulty", "normal"))[:24],
             "decor_density": str(body.get("decor_density", "medium"))[:24], **settings,
             "existing_objects": existing, "allowed_ids": ids,
@@ -174,7 +195,7 @@ def validate_objects(data, ctx):
             continue
         if not (0 <= x <= 999000 and 0 <= y <= 30000 and 0.1 <= scale <= 10 and abs(rot) <= 360):
             continue
-        if ctx.get("strict_bounds", True) and not (b["min_x"] <= x <= b["max_x"] and b["min_y"] <= y <= b["max_y"]):
+        if not (b["min_x"] <= x <= b["max_x"] and b["min_y"] <= y <= b["max_y"]):
             continue
         if not ctx.get("allow_mode_changes", True) and o["id"] in (10,11,12,13,47,99,101,111,200,201,202,203,660,745,1331,1334,1933):
             continue
@@ -208,15 +229,26 @@ def cli_command(cli, *args):
 
 
 def run_cli(ctx, runner=subprocess.run):
+    with image_file(ctx.get("_image")) as attachment:
+        return run_cli_inner(ctx, runner, attachment)
+
+
+def run_cli_inner(ctx, runner, attachment):
     if ctx["cli"] == "codex":
         try:
             if not has_chatgpt_login(cli_command):
                 raise BridgeError("cli_not_logged_in", "Use ChatGPT account sign-in; API-key mode is disabled", 503)
         except (OSError, subprocess.TimeoutExpired):
             raise BridgeError("cli_not_logged_in", "Cannot check ChatGPT account sign-in", 503)
-    prompt = SYSTEM + json.dumps(ctx, ensure_ascii=False)
+    prompt = SYSTEM + json.dumps({k: v for k, v in ctx.items() if k != "_image"}, ensure_ascii=False)
     command = COMMANDS[ctx["cli"]](ctx["cli"], prompt)
     command = cli_command(command[0], *command[1:])
+    if ctx.get("model"):
+        command[-1:-1] = ["--model", ctx["model"]] if ctx["cli"] == "codex" else []
+        if ctx["cli"] != "codex":
+            command.extend(["--model", ctx["model"]])
+    if attachment:
+        command[-1:-1] = ["--image", attachment, "--"]
     deadline = time.monotonic() + max(1, ctx.get("timeout", 180) - 10)
     for attempt in range(2):
         try:
@@ -228,6 +260,8 @@ def run_cli(ctx, runner=subprocess.run):
             raise BridgeError("cli_failed", "Cannot launch CLI", 503)
         combined = (run.stderr + "\n" + run.stdout).lower()
         if run.returncode:
+            if "model" in combined and any(s in combined for s in ("not found", "not support", "unavailable", "does not exist", "not available")):
+                raise BridgeError("model_unavailable", "Selected model is unavailable; choose CLI default or another model", 400)
             if any(s in combined for s in ("not logged", "login", "log in", "sign in", "authenticate", "authentication", "unauthorized", "api key")):
                 raise BridgeError("cli_not_logged_in", "Log in to the CLI in a terminal first", 503)
             raise BridgeError("cli_failed", "CLI exited with code " + str(run.returncode))
@@ -252,6 +286,13 @@ class Handler(BaseHTTPRequestHandler):
             print("Client disconnected before receiving reply", flush=True)
 
     def do_GET(self):
+        if self.path == "/limits":
+            return self.send_json(200, cached_limits(cli_command))
+        if self.path.startswith("/models"):
+            cli = "codex"
+            if "cli=claude" in self.path: cli = "claude"
+            if "cli=gemini" in self.path: cli = "gemini"
+            return self.send_json(200, {"models": model_list(cli)})
         if self.path == "/auth/status":
             return self.send_json(200, ACCOUNT.snapshot())
         if self.path == "/login":

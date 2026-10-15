@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
+#include "AccountLimits.hpp"
 
 using namespace geode::prelude;
 
@@ -148,6 +149,10 @@ protected:
 			ui::kIdle, 0.32f), this, menu_selector(AIPanel::onSettings));
 		settings->setPosition({W - 82.f, H - 24.f});
 		menu->addChild(settings);
+		auto limits = CCMenuItemSpriteExtra::create(ui::makePill("Limits", 64.f, 22.f,
+			ui::kIdle, 0.32f), this, menu_selector(AIPanel::onLimits));
+		limits->setPosition({W - 160.f, H - 24.f});
+		menu->addChild(limits);
 
 		m_pillGame = ui::makePill("Gameplay", 170.f, 30.f, ui::kAccent, 0.42f);
 		m_pillDecor = ui::makePill("Decor", 170.f, 30.f, ui::kIdle, 0.42f);
@@ -292,6 +297,7 @@ protected:
 	}
 
 	void onSettings(CCObject*) { geode::openSettingsPopup(Mod::get()); }
+	void onLimits(CCObject*) { if (auto popup = AccountLimits::create()) popup->show(); }
 	void onLogin(CCObject*) { web::openLinkInBrowser(bridgeURL() + "/login"); }
 	void onReconnect(CCObject*) { checkHealth(); }
 	void onAsk(CCObject*) { if (!m_busy) sendRequest(true); }
