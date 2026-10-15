@@ -42,8 +42,8 @@ Do NOT reduce every request to a flat row of blocks and one isolated spike.
 CONSTRUCTION RULES, NOT CREATIVE BANS:
 - Plan a connected route, motifs and transitions before output. Use a consistent
   block style and rhythm. Variation must have a purpose, not random coordinates.
-- Coordinates are absolute. bounds is the requested rectangle; when strict_bounds
-  is true, full object footprints must fit. Preserve ALL existing objects: only
+- Coordinates are absolute. bounds is the requested rectangle; full object
+  footprints MUST always fit. Preserve ALL existing objects: only
   add new ones, never delete, move, recolor or retarget the player's existing work.
   editor_bounds and target bounds are hard placement limits, irrespective of style.
   A supplied image is a design reference, not permission to leave those bounds.

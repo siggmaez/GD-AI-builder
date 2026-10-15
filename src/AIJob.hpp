@@ -194,7 +194,9 @@ public:
 				auto error = json ? json.unwrap()["error"].asString().unwrapOr("") : "";
 				std::string message = "Bridge HTTP error " + std::to_string(res.code());
 				if (res.code() <= 0) message = "Bridge offline or request timed out";
-				else if (error == "cli_not_logged_in") message = "CLI not logged in: run login in terminal";
+				else if (error == "cli_not_logged_in") message = "Sign in through Geode Settings > ChatGPT account";
+				else if (error == "model_unavailable") message = "Model unavailable: choose CLI default or another model";
+				else if (error == "image_unsupported") message = "Photos require Codex and a model with image support";
 				else if (error == "cli_missing") message = "Selected CLI not installed on bridge";
 				else if (error == "invalid_json") message = "CLI returned invalid JSON after retry";
 				else if (error == "timeout") message = "CLI timed out; try a shorter prompt";

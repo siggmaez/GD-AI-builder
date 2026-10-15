@@ -2,6 +2,7 @@
 #include "AIJob.hpp"
 #include "AIMenus.hpp"
 #include <Geode/utils/base64.hpp>
+#include <Geode/utils/string.hpp>
 
 class AIPanel : public Popup {
     Ref<AIJob> m_job;
@@ -46,7 +47,7 @@ class AIPanel : public Popup {
         auto decor=CCMenuItemExt::createSpriteExtra(m_decorPill,[this](auto){if(!m_job->m_busy){m_decor=true;mode();}});
         game->setPosition({383,250});decor->setPosition({509,250});menu->addChild(game);menu->addChild(decor);
         m_model=ui::label(root,"CLI default",{446,226},.3f);
-        bg=NineSlice::create("square02_001.png");bg->setContentSize({245,105});bg->setPosition({446,161});bg->setColor({12,14,19});root->addChild(bg);
+        bg=NineSlice::create("square02_001.png");bg->setContentSize({245,85});bg->setPosition({446,155});bg->setColor({12,14,19});root->addChild(bg);
         m_preview=CCDrawNode::create();m_preview->setPosition({329,114});root->addChild(m_preview);
         m_area=ui::label(root,"Editor area",{446,99},.27f);
         for(int i=0;i<3;++i){
@@ -55,8 +56,8 @@ class AIPanel : public Popup {
                 if(!m_job->m_busy){m_job->area=area;m_job->computeBounds();refresh(0);}
             });
         }
-        ui::button(menu,"Reference",{382,125},100,[this](auto){m_showPhoto=!m_showPhoto;refresh(0);});
-        ui::button(menu,"Clear photo",{510,125},100,[this](auto){
+        ui::button(menu,"Reference",{382,210},100,[this](auto){m_showPhoto=!m_showPhoto;refresh(0);});
+        ui::button(menu,"Clear photo",{510,210},100,[this](auto){
             m_image=matjson::Value();m_showPhoto=false;
             if(m_photo){m_photo->removeFromParent();m_photo=nullptr;} m_attachment->setString("");
         });
@@ -110,7 +111,7 @@ class AIPanel : public Popup {
         m_preview->setVisible(!m_showPhoto || !m_photo);
         if(!m_preview->isVisible())return;
         m_preview->clear();
-        float factor=std::min(233.f/std::max(1.f,b.size.width),94.f/std::max(1.f,b.size.height));
+        float factor=std::min(233.f/std::max(1.f,b.size.width),78.f/std::max(1.f,b.size.height));
         m_preview->drawRect({0,0,b.size.width*factor,b.size.height*factor},{0,0,0,0},.7f,{.4f,.5f,.8f,1});
         size_t count=0;
         for(auto obj:CCArrayExt<GameObject*>(m_job->m_editor->m_objects)){
@@ -171,10 +172,10 @@ class AIPanel : public Popup {
             self->m_image["data"]=utils::base64::encode(raw,utils::base64::Base64Variant::Normal);
             self->m_attachment->setString("Reference attached (max 5 MB)");
             if(self->m_photo){self->m_photo->removeFromParent();self->m_photo=nullptr;}
-            auto path=selected->string();auto photo=CCSprite::create(path.c_str());
+            auto path=utils::string::pathToString(*selected);auto photo=CCSprite::create(path.c_str());
             if(photo){
-                photo->setScale(std::min(235.f/photo->getContentSize().width,97.f/photo->getContentSize().height));
-                photo->setPosition({446,161});
+                photo->setScale(std::min(235.f/photo->getContentSize().width,77.f/photo->getContentSize().height));
+                photo->setPosition({446,155});
                 // Preview and controls share the content coordinate system.
                 self->m_preview->getParent()->addChild(photo);self->m_photo=photo;self->m_showPhoto=true;
             }

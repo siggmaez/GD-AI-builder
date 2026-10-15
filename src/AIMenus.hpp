@@ -3,7 +3,7 @@
 #include "ChatStore.hpp"
 #include "AccountLimits.hpp"
 #include <Geode/ui/ScrollLayer.hpp>
-#include <Geode/utils/clipboard.hpp>
+#include <Geode/utils/general.hpp>
 
 namespace ui {
     inline std::string bridgeURL() {
