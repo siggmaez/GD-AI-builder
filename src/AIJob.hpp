@@ -7,6 +7,7 @@ class AIJob : public CCNode {
 public:
     LevelEditorLayer* m_editor = nullptr;
     std::string status = "Ready", reply, m_chat;
+    std::string m_requestID;
     ccColor3B statusColor = ui::kMuted;
     size_t revision = 0;
     bool m_busy = false, m_applying = false, m_requestChat = false;
@@ -37,6 +38,7 @@ public:
         return node;
     }
     void onExit() override {
+        cancelNetwork();
         m_request.cancel();
         if (m_applying) finishApply();
         if (m_outline) { m_outline->removeFromParent(); m_outline = nullptr; }
@@ -67,6 +69,7 @@ public:
         }
     }
     void cancel() {
+        cancelNetwork();
         m_request.cancel();
         if (m_previewReady) {
             m_previewReady = false; m_pending.clear(); setBusy(false);
@@ -76,6 +79,15 @@ public:
         if (m_applying) finishApply();
         setBusy(false); setStatus("Stopped", ui::kMuted);
         setAnswer("Stopped. Objects already placed remain in one undo step.");
+    }
+    void cancelNetwork() {
+        if(m_requestID.empty())return;
+        matjson::Value body;body["request_id"]=m_requestID;
+        web::WebRequest request;request.header("X-AI-Builder","cancel-request");
+        request.bodyJSON(body);request.timeout(std::chrono::seconds(4));
+        static async::TaskHolder<web::WebResponse> cancellation;
+        cancellation.spawn(request.post(bridgeURL()+"/cancel"),[](auto){});
+        m_requestID.clear();
     }
     void computeBounds() {
         if (m_busy || !m_editor) return;
@@ -147,6 +159,9 @@ public:
         auto maxX = m_bounds.getMinX();
 
 		matjson::Value body;
+        static uint64_t requestCounter=0;
+        m_requestID=fmt::format("{}_{}",std::chrono::steady_clock::now().time_since_epoch().count(),++requestCounter);
+        body["request_id"]=m_requestID;
 		body["mode"] = std::string(m_decor ? "decor" : "gameplay");
 		body["prompt"] = prompt;
 		body["action"] = std::string(chat ? "chat" : "build");
@@ -204,6 +219,7 @@ public:
 		m_request.spawn(req.post(url), [weak = WeakRef(this)](web::WebResponse res) {
 			auto self = weak.lock();
 			if (!self) return;
+            self->m_requestID.clear();
 			log::info("AI request completed: HTTP {}", res.code());
 			if (!res.ok()) {
 				self->setBusy(false);

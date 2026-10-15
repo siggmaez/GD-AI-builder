@@ -32,6 +32,7 @@ public:
     static void remove(std::string const& id) {
         auto& list=chats();
         std::erase_if(list,[&](auto const& chat){return chat["id"].asString().unwrapOr("")==id;});
+        Mod::get()->setSavedValue("draft-"+id,std::string(""));
         (void)active(); save();
     }
     static std::string active() {

@@ -23,6 +23,7 @@ class AIPanel : public Popup {
     CCRect m_previewBounds;
     unsigned int m_previewObjects = 0;
     std::string m_chatSignature;
+    std::string m_displayChat;
     async::TaskHolder<web::WebResponse> m_healthRequest;
     async::TaskHolder<file::PickResult> m_picker;
 
@@ -96,8 +97,11 @@ class AIPanel : public Popup {
         m_input->setMaxCharCount(0);m_input->setCallback([this](std::string const& s){
             auto value=ui::limitUTF8(s,2000);if(value!=s)m_input->setString(value);
             Mod::get()->setSavedValue("draft",value);
+            Mod::get()->setSavedValue("draft-"+ChatStore::active(),value);
         });
-        m_input->setString(Mod::get()->getSavedValue<std::string>("draft",""));root->addChild(m_input);
+        m_displayChat=ChatStore::active();
+        m_input->setString(Mod::get()->getSavedValue<std::string>("draft-"+m_displayChat,
+            Mod::get()->getSavedValue<std::string>("draft","")));root->addChild(m_input);
         ui::button(menu,"+",{25,21},26,[this](auto){
             if(!m_photo){pickImage();return;}
             createQuickPopup("Reference photo","Replace or remove the attached image?","Remove","Replace",[weak=WeakRef(this)](auto,bool replace){
@@ -127,6 +131,7 @@ class AIPanel : public Popup {
         if(m_job->m_busy){
             if(Mod::get()->getSettingValue<bool>("clear-prompt")){
                 m_input->setString("");Mod::get()->setSavedValue("draft",std::string(""));
+                Mod::get()->setSavedValue("draft-"+m_displayChat,std::string(""));
             }
             m_image=matjson::Value();m_attachment->setString("");
             m_showPhoto=false;
@@ -144,7 +149,13 @@ class AIPanel : public Popup {
         m_discard->setVisible(m_job->m_previewReady);
         m_status->setString(m_job->status.c_str());m_status->setColor(m_job->statusColor);m_status->limitLabelWidth(218,.29f,.18f);
         auto id=ChatStore::active();auto messages=ChatStore::messages(id);
-        auto signature=id+":"+std::to_string(messages.size());
+        if(id!=m_displayChat){
+            Mod::get()->setSavedValue("draft-"+m_displayChat,m_input->getString());
+            m_displayChat=id;
+            m_input->setString(Mod::get()->getSavedValue<std::string>("draft-"+id,""));
+        }
+        auto signature=id+":"+std::to_string(messages.size())+":"+
+            std::to_string(Mod::get()->getSettingValue<int64_t>("chat-text-size"));
         if(signature!=m_chatSignature){m_chatSignature=signature;renderChat(messages);}
         m_job->computeBounds();
         auto b=m_job->m_bounds;
@@ -248,6 +259,7 @@ class AIPanel : public Popup {
     }
     void onClose(CCObject* sender) override {
         Mod::get()->setSavedValue("draft",std::string(m_input->getString()));
+        Mod::get()->setSavedValue("draft-"+m_displayChat,std::string(m_input->getString()));
         // The job belongs to EditorUI and keeps running after this view is destroyed.
         m_healthRequest.cancel();m_picker.cancel();Popup::onClose(sender);
     }
