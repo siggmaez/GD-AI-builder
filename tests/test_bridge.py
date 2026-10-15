@@ -44,6 +44,30 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaises(bridge.BridgeError):
                 bridge.context(body)
 
+    def test_chat_returns_reply_and_never_objects(self):
+        ctx = self.ctx(action="chat")
+        result = bridge.validate_objects({"message": "Привет!\nЧто построим?", "objects": [
+            {"id": 1, "x": 75, "y": 15}]}, ctx)
+        self.assertEqual(result, {"objects": [], "message": "Привет! Что построим?"})
+        with self.assertRaises(ValueError):
+            bridge.validate_objects({"objects": []}, ctx)
+
+    def test_build_preserves_short_ai_message(self):
+        result = bridge.validate_objects({"objects": [], "message": "a" * 1000}, self.ctx())
+        self.assertEqual(len(result["message"]), 220)
+
+    def test_disconnected_windows_client_does_not_crash_handler(self):
+        handler = object.__new__(bridge.Handler)
+        handler.send_response = lambda *args: None
+        handler.send_header = lambda *args: None
+        handler.end_headers = lambda: None
+        class Disconnected:
+            def write(self, data):
+                raise ConnectionAbortedError("client cancelled")
+        handler.wfile = Disconnected()
+        with patch("builtins.print"):
+            handler.send_json(200, {"objects": []})
+
     @patch("bridge.cli_command", return_value=["fake", "prompt"])
     def test_exactly_one_retry(self, _):
         responses = iter(["not JSON", '{"objects":[]}'])

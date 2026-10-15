@@ -6,6 +6,7 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
@@ -68,6 +69,10 @@ protected:
 	TextInput* m_input = nullptr;
 	CCLabelBMFont* m_status = nullptr;
 	CCLabelBMFont* m_healthLabel = nullptr;
+	CCLabelTTF* m_answer = nullptr;
+	CCMenuItemSpriteExtra* m_askBtn = nullptr;
+	int m_elapsed = 0;
+	bool m_requestChat = false;
 	async::TaskHolder<web::WebResponse> m_request;
 	async::TaskHolder<web::WebResponse> m_healthRequest;
 	std::unordered_set<int> m_allowed;
@@ -81,7 +86,7 @@ protected:
 	bool m_busy = false;
 
 	bool init(LevelEditorLayer* editor) {
-		if (!Popup::init(340.f, 210.f, "square02_001.png")) return false;
+		if (!Popup::init(400.f, 300.f, "square02_001.png")) return false;
 		m_editor = editor;
 
 		m_bgSprite->setColor(ui::kSurface);
@@ -117,38 +122,63 @@ protected:
 			ui::makePill("x", 26.f, 26.f, ui::kIdle, 0.5f), this, menu_selector(AIPanel::onClose));
 		closeBtn->setPosition({W - 22.f, H - 24.f});
 		menu->addChild(closeBtn);
+		auto settings = CCMenuItemSpriteExtra::create(ui::makePill("Settings", 72.f, 22.f,
+			ui::kIdle, 0.32f), this, menu_selector(AIPanel::onSettings));
+		settings->setPosition({W - 82.f, H - 24.f});
+		menu->addChild(settings);
 
-		m_pillGame = ui::makePill("Gameplay", 120.f, 28.f, ui::kAccent, 0.42f);
-		m_pillDecor = ui::makePill("Decor", 120.f, 28.f, ui::kIdle, 0.42f);
+		m_pillGame = ui::makePill("Gameplay", 170.f, 30.f, ui::kAccent, 0.42f);
+		m_pillDecor = ui::makePill("Decor", 170.f, 30.f, ui::kIdle, 0.42f);
 		auto bGame = CCMenuItemSpriteExtra::create(m_pillGame, this, menu_selector(AIPanel::onMode));
 		bGame->setTag(0);
-		bGame->setPosition({W / 2 - 66.f, H - 62.f});
+		bGame->setPosition({W / 2 - 90.f, H - 82.f});
 		auto bDecor = CCMenuItemSpriteExtra::create(m_pillDecor, this, menu_selector(AIPanel::onMode));
 		bDecor->setTag(1);
-		bDecor->setPosition({W / 2 + 66.f, H - 62.f});
+		bDecor->setPosition({W / 2 + 90.f, H - 82.f});
 		menu->addChild(bGame);
 		menu->addChild(bDecor);
 		this->refreshMode();
 
 		m_input = TextInput::create(W - 40.f, "Describe what to build...", "chatFont.fnt");
-		m_input->setPosition({W / 2, H / 2 - 12.f});
+		m_input->setPosition({W / 2, 170.f});
 		m_input->setMaxCharCount(300);
+		m_input->setString(Mod::get()->getSavedValue<std::string>("draft", ""));
 		root->addChild(m_input);
+		auto answerBg = NineSlice::create("square02_001.png");
+		answerBg->setContentSize({W - 40.f, 90.f});
+		answerBg->setPosition({W / 2, 102.f});
+		answerBg->setColor({12, 14, 19});
+		root->addChild(answerBg);
+		m_answer = CCLabelTTF::create("Ask AI a question, or describe a section and press Generate.",
+			"Arial", 12.f, {W - 60.f, 72.f}, kCCTextAlignmentLeft, kCCVerticalTextAlignmentTop);
+		m_answer->setColor(ui::kText);
+		m_answer->setAnchorPoint({0.f, 1.f});
+		m_answer->setPosition({30.f, 138.f});
+		root->addChild(m_answer);
 
 		m_status = CCLabelBMFont::create("Ready", "chatFont.fnt");
 		m_status->setScale(0.6f);
 		m_status->setColor(ui::kMuted);
-		m_status->setPosition({W / 2, 52.f});
+		m_status->setPosition({W / 2, 45.f});
 		root->addChild(m_status);
 		m_healthLabel = CCLabelBMFont::create("Bridge checking...", "chatFont.fnt");
 		m_healthLabel->setScale(0.45f);
 		m_healthLabel->setColor(ui::kMuted);
-		m_healthLabel->setPosition({W / 2, 72.f});
+		m_healthLabel->setAnchorPoint({0.f, 0.5f});
+		m_healthLabel->setPosition({22.f, H - 48.f});
 		root->addChild(m_healthLabel);
+		auto refresh = CCMenuItemSpriteExtra::create(ui::makePill("Reconnect", 86.f, 20.f,
+			ui::kIdle, 0.29f), this, menu_selector(AIPanel::onReconnect));
+		refresh->setPosition({W - 62.f, H - 48.f});
+		menu->addChild(refresh);
+		m_askBtn = CCMenuItemSpriteExtra::create(ui::makePill("Ask AI", 156.f, 30.f,
+			ui::kIdle, 0.42f), this, menu_selector(AIPanel::onAsk));
+		m_askBtn->setPosition({W / 2 - 86.f, 23.f});
+		menu->addChild(m_askBtn);
 
 		m_genBtn = CCMenuItemSpriteExtra::create(
-			ui::makePill("Generate", 160.f, 32.f, ui::kAccent, 0.5f), this, menu_selector(AIPanel::onGenerate));
-		m_genBtn->setPosition({W / 2, 26.f});
+			ui::makePill("Generate", 156.f, 30.f, ui::kAccent, 0.42f), this, menu_selector(AIPanel::onGenerate));
+		m_genBtn->setPosition({W / 2 + 86.f, 23.f});
 		menu->addChild(m_genBtn);
 		ui::recolor(m_genBtn->getNormalImage(), ui::kAccent, ui::kSurface);
 
@@ -170,12 +200,27 @@ protected:
 	void setStatus(std::string const& s, ccColor3B col) {
 		m_status->setString(s.c_str());
 		m_status->setColor(col);
-		m_status->limitLabelWidth(m_size.width - 32.f, 0.6f, 0.3f);
+		m_status->limitLabelWidth(m_size.width - 32.f, 0.45f, 0.3f);
+	}
+
+	void setAnswer(std::string const& text) {
+		m_answer->setString(text.c_str());
+	}
+
+	void tick(float) {
+		setStatus(std::string(m_requestChat ? "Asking AI... " : "Generating... ") +
+			std::to_string(++m_elapsed) + "s / 180s", ui::kMuted);
 	}
 
 	void setBusy(bool b) {
 		m_busy = b;
 		m_input->setEnabled(!b);
+		m_askBtn->setEnabled(!b);
+		if (b) {
+			m_elapsed = 0;
+			schedule(schedule_selector(AIPanel::tick), 1.f);
+		}
+		else unschedule(schedule_selector(AIPanel::tick));
 		static_cast<CCLabelBMFont*>(m_genBtn->getNormalImage()->getChildByTag(2))->setString(b ? "Cancel" : "Generate");
 		ui::recolor(m_genBtn->getNormalImage(), b ? ui::kIdle : ui::kAccent, b ? ui::kMuted : ui::kSurface);
 	}
@@ -187,6 +232,7 @@ protected:
 	}
 
 	void checkHealth() {
+		m_healthLabel->setString("Bridge checking...");
 		m_healthRequest.spawn(web::WebRequest().timeout(std::chrono::seconds(4)).get(bridgeURL() + "/health"),
 			[weak = WeakRef(this)](web::WebResponse res) {
 				auto self = weak.lock();
@@ -195,14 +241,21 @@ protected:
 				bool online = res.ok() && json && json.unwrap()["status"].asString().unwrapOr("") == "ok";
 				self->m_healthLabel->setString(online ? "Bridge online" : "Bridge offline");
 				self->m_healthLabel->setColor(online ? ui::kGood : ui::kBad);
+				if (!online && !self->m_busy) self->setAnswer("Bridge offline. Start bridge.py, then press Reconnect. Check the Bridge URL in Settings.");
 			});
 	}
 
 	void onClose(CCObject* sender) override {
+		Mod::get()->setSavedValue("draft", std::string(m_input->getString()));
+		unschedule(schedule_selector(AIPanel::tick));
 		m_request.cancel();
 		m_healthRequest.cancel();
 		Popup::onClose(sender);
 	}
+
+	void onSettings(CCObject*) { geode::openSettingsPopup(Mod::get()); }
+	void onReconnect(CCObject*) { checkHealth(); }
+	void onAsk(CCObject*) { if (!m_busy) sendRequest(true); }
 
 	bool loadPolicy() {
 		m_allowed.clear();
@@ -229,12 +282,19 @@ protected:
 			m_request.cancel();
 			setBusy(false);
 			setStatus("Cancelled", ui::kMuted);
+			setAnswer("Request cancelled. No late response will be applied.");
 			return;
 		}
+		sendRequest(false);
+	}
+
+	void sendRequest(bool chat) {
+		m_requestChat = chat;
 		std::string prompt = m_input->getString();
 		if (prompt.find_first_not_of(" \t\r\n") == std::string::npos)
 			return this->setStatus("Write a prompt first", ui::kBad);
 		m_requestDecor = m_decor;
+		Mod::get()->setSavedValue("draft", prompt);
 		m_limit = static_cast<int>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("object-limit"), 1, 1500));
 		if (!loadPolicy()) return setStatus("Missing or invalid object whitelist", ui::kBad);
 
@@ -248,10 +308,11 @@ protected:
 		matjson::Value body;
 		body["mode"] = std::string(m_decor ? "decor" : "gameplay");
 		body["prompt"] = prompt;
+		body["action"] = std::string(chat ? "chat" : "build");
 		body["start_x"] = static_cast<double>(maxX);
 		body["cli"] = Mod::get()->getSettingValue<std::string>("cli");
 		body["max_objects"] = m_limit;
-		if (m_requestDecor) {
+		if (m_requestDecor && !chat) {
 			auto selected = m_editor->m_editorUI->getSelectedObjects();
 			if (selected && selected->count()) {
 				float left = 999000.f, right = 0.f, bottom = 30000.f, top = 0.f;
@@ -289,9 +350,23 @@ protected:
 			body["start_x"] = m_bounds.getMinX();
 		}
 		body["bounds"] = boundsJSON();
+		if (!m_requestDecor && !chat) {
+			std::vector<matjson::Value> nearby;
+			for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
+				if (obj->getPositionX() < maxX - 600.f || obj->getPositionX() > maxX) continue;
+				matjson::Value entry;
+				entry["id"] = obj->m_objectID;
+				entry["x"] = obj->getPositionX(); entry["y"] = obj->getPositionY();
+				nearby.push_back(std::move(entry));
+				if (nearby.size() == 300) break;
+			}
+			body["existing_objects"] = nearby;
+		}
 
 		this->setBusy(true);
 		this->setStatus("Thinking...", ui::kMuted);
+		setAnswer("Waiting for the selected AI. Keep this panel open; Cancel stops waiting.");
+		log::info("AI request started: action={}, cli={}", chat ? "chat" : "build", Mod::get()->getSettingValue<std::string>("cli"));
 
 		auto url = bridgeURL() + "/generate";
 		web::WebRequest req;
@@ -301,6 +376,7 @@ protected:
 		m_request.spawn(req.post(url), [weak = WeakRef(this)](web::WebResponse res) {
 			auto self = weak.lock();
 			if (!self) return;
+			log::info("AI request completed: HTTP {}", res.code());
 			if (!res.ok()) {
 				self->setBusy(false);
 				auto json = res.json();
@@ -314,14 +390,25 @@ protected:
 				else if (error == "busy") message = "Bridge busy; try again shortly";
 				else if (error == "cli_failed") message = "CLI failed; check login and quota";
 				self->checkHealth();
+				self->setAnswer(message + ". Open Settings to check the bridge address and CLI.");
 				return self->setStatus(message, ui::kBad);
 			}
 			auto json = res.json();
 			if (!json) {
 				self->setBusy(false);
+				self->setAnswer("The bridge returned invalid JSON. Update or restart bridge.py.");
 				return self->setStatus("Bad JSON from bridge", ui::kBad);
 			}
-			self->applyObjects(json.unwrap());
+			auto message = json.unwrap()["message"].asString().unwrapOr("");
+			if (self->m_requestChat) {
+				self->setBusy(false);
+				self->setAnswer(message.empty() ? "Bridge returned no text. Restart the updated bridge.py." : message);
+				self->setStatus(message.empty() ? "Empty reply" : "AI replied", message.empty() ? ui::kBad : ui::kGood);
+			}
+			else {
+				self->applyObjects(json.unwrap());
+				if (!message.empty()) self->setAnswer(message);
+			}
 		});
 	}
 
@@ -359,6 +446,13 @@ protected:
 				obj->updateCustomScaleX(scale);
 				obj->updateCustomScaleY(scale);
 			}
+			// Test the actual footprint, not just the object's center.
+			auto rect = obj->getObjectRect();
+			if (rect.getMinX() < m_bounds.getMinX() - 0.1f || rect.getMaxX() > m_bounds.getMaxX() + 0.1f ||
+				rect.getMinY() < m_bounds.getMinY() - 0.1f || rect.getMaxY() > m_bounds.getMaxY() + 0.1f) {
+				m_editor->removeObject(obj, true);
+				continue;
+			}
 			created->addObject(obj);
 			count++;
 		}
@@ -368,6 +462,8 @@ protected:
 		}
 		this->setStatus(count ? "Added " + std::to_string(count) + " objects (one undo)" :
 			"No valid objects in response", count ? ui::kGood : ui::kBad);
+		setAnswer(count ? "Generation applied. Undo removes the whole section in one step." :
+			"No objects were added. Ask for a simpler section or select a different area.");
 	}
 
 public:
