@@ -19,7 +19,7 @@ MAX_BODY = 256 * 1024
 SLOTS = threading.BoundedSemaphore(2)
 COMMANDS = {
     "claude": lambda exe, p: [exe, "-p", p],
-    "codex": lambda exe, p: [exe, "exec", "--skip-git-repo-check", p],
+    "codex": lambda exe, p: [exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", p],
     "gemini": lambda exe, p: [exe, "-p", p],
 }
 POLICY = json.loads((Path(__file__).parent / "resources" / "object-whitelist.json").read_text(encoding="utf-8"))

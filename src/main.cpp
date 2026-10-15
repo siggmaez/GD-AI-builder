@@ -26,6 +26,6 @@ class $modify(AIEditorUI, EditorUI) {
 	}
 
 	void onAI(CCObject*) {
-		AIPanel::create(m_editorLayer)->show();
+		if (auto panel = AIPanel::create(m_editorLayer)) panel->show();
 	}
 };

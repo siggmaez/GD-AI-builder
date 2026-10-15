@@ -5,6 +5,10 @@
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
+#include <Geode/utils/file.hpp>
+#include <algorithm>
+#include <cmath>
+#include <unordered_set>
 
 using namespace geode::prelude;
 
@@ -46,7 +50,15 @@ namespace ui {
 	}
 
 	inline CCNode* makeRoundButton(char const* text, float d, ccColor3B col) {
-		return makePill(text, d, d, col, 0.45f);
+		auto node = makePill(text, d, d, col, 0.45f);
+		auto old = node->getChildByTag(1);
+		old->removeFromParent();
+		auto circle = CCSprite::createWithSpriteFrameName("GJ_button_01.png");
+		circle->setScale(d / circle->getContentSize().width);
+		circle->setPosition({d / 2, d / 2});
+		circle->setColor(col);
+		node->addChild(circle, -1, 1);
+		return node;
 	}
 }
 
@@ -55,6 +67,13 @@ protected:
 	Ref<LevelEditorLayer> m_editor;
 	TextInput* m_input = nullptr;
 	CCLabelBMFont* m_status = nullptr;
+	CCLabelBMFont* m_healthLabel = nullptr;
+	async::TaskHolder<web::WebResponse> m_request;
+	async::TaskHolder<web::WebResponse> m_healthRequest;
+	std::unordered_set<int> m_allowed;
+	CCRect m_bounds;
+	int m_limit = 300;
+	bool m_requestDecor = false;
 	CCNode* m_pillGame = nullptr;
 	CCNode* m_pillDecor = nullptr;
 	CCMenuItemSpriteExtra* m_genBtn = nullptr;
@@ -66,8 +85,12 @@ protected:
 		m_editor = editor;
 
 		m_bgSprite->setColor(ui::kSurface);
-		m_bgSprite->setOpacity(240);
+		m_bgSprite->setOpacity(static_cast<GLubyte>(std::clamp<int64_t>(
+			Mod::get()->getSettingValue<int64_t>("panel-opacity"), 80, 255)));
 		m_closeBtn->setVisible(false);
+		auto win = CCDirector::get()->getWinSize();
+		m_mainLayer->setScale(std::min({1.f, (win.width - 16.f) / m_size.width,
+			(win.height - 16.f) / m_size.height}));
 
 		float W = m_size.width, H = m_size.height;
 
@@ -117,6 +140,11 @@ protected:
 		m_status->setColor(ui::kMuted);
 		m_status->setPosition({W / 2, 52.f});
 		root->addChild(m_status);
+		m_healthLabel = CCLabelBMFont::create("Bridge checking...", "chatFont.fnt");
+		m_healthLabel->setScale(0.45f);
+		m_healthLabel->setColor(ui::kMuted);
+		m_healthLabel->setPosition({W / 2, 72.f});
+		root->addChild(m_healthLabel);
 
 		m_genBtn = CCMenuItemSpriteExtra::create(
 			ui::makePill("Generate", 160.f, 32.f, ui::kAccent, 0.5f), this, menu_selector(AIPanel::onGenerate));
@@ -124,6 +152,7 @@ protected:
 		menu->addChild(m_genBtn);
 		ui::recolor(m_genBtn->getNormalImage(), ui::kAccent, ui::kSurface);
 
+		checkHealth();
 		return true;
 	}
 
@@ -133,6 +162,7 @@ protected:
 	}
 
 	void onMode(CCObject* sender) {
+		if (m_busy) return;
 		m_decor = static_cast<CCNode*>(sender)->getTag() == 1;
 		this->refreshMode();
 	}
@@ -140,41 +170,151 @@ protected:
 	void setStatus(std::string const& s, ccColor3B col) {
 		m_status->setString(s.c_str());
 		m_status->setColor(col);
+		m_status->limitLabelWidth(m_size.width - 32.f, 0.6f, 0.3f);
 	}
 
 	void setBusy(bool b) {
 		m_busy = b;
-		m_genBtn->setEnabled(!b);
+		m_input->setEnabled(!b);
+		static_cast<CCLabelBMFont*>(m_genBtn->getNormalImage()->getChildByTag(2))->setString(b ? "Cancel" : "Generate");
 		ui::recolor(m_genBtn->getNormalImage(), b ? ui::kIdle : ui::kAccent, b ? ui::kMuted : ui::kSurface);
 	}
 
+	std::string bridgeURL() const {
+		auto url = Mod::get()->getSettingValue<std::string>("bridge-url");
+		while (!url.empty() && url.back() == '/') url.pop_back();
+		return url;
+	}
+
+	void checkHealth() {
+		m_healthRequest.spawn(web::WebRequest().timeout(std::chrono::seconds(4)).get(bridgeURL() + "/health"),
+			[weak = WeakRef(this)](web::WebResponse res) {
+				auto self = weak.lock();
+				if (!self) return;
+				auto json = res.json();
+				bool online = res.ok() && json && json.unwrap()["status"].asString().unwrapOr("") == "ok";
+				self->m_healthLabel->setString(online ? "Bridge online" : "Bridge offline");
+				self->m_healthLabel->setColor(online ? ui::kGood : ui::kBad);
+			});
+	}
+
+	void onClose(CCObject* sender) override {
+		m_request.cancel();
+		m_healthRequest.cancel();
+		Popup::onClose(sender);
+	}
+
+	bool loadPolicy() {
+		m_allowed.clear();
+		auto policy = file::readJson(Mod::get()->getResourcesDir() / "object-whitelist.json");
+		if (!policy) return false;
+		auto ids = policy.unwrap()[m_requestDecor ? "decor" : "gameplay"].asArray();
+		if (!ids) return false;
+		for (auto const& value : ids.unwrap()) {
+			auto id = value.asInt().unwrapOr(0);
+			if (id > 0 && id < 100000) m_allowed.insert(static_cast<int>(id));
+		}
+		return !m_allowed.empty();
+	}
+
+	matjson::Value boundsJSON() const {
+		matjson::Value b;
+		b["min_x"] = m_bounds.getMinX(); b["max_x"] = m_bounds.getMaxX();
+		b["min_y"] = m_bounds.getMinY(); b["max_y"] = m_bounds.getMaxY();
+		return b;
+	}
+
 	void onGenerate(CCObject*) {
-		if (m_busy) return;
+		if (m_busy) {
+			m_request.cancel();
+			setBusy(false);
+			setStatus("Cancelled", ui::kMuted);
+			return;
+		}
 		std::string prompt = m_input->getString();
-		if (prompt.empty()) return this->setStatus("Write a prompt first", ui::kBad);
+		if (prompt.find_first_not_of(" \t\r\n") == std::string::npos)
+			return this->setStatus("Write a prompt first", ui::kBad);
+		m_requestDecor = m_decor;
+		m_limit = static_cast<int>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("object-limit"), 1, 1500));
+		if (!loadPolicy()) return setStatus("Missing or invalid object whitelist", ui::kBad);
 
 		float maxX = 0.f;
 		for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
-			maxX = std::max(maxX, obj->getPositionX());
+			if (std::isfinite(obj->getPositionX())) maxX = std::max(maxX, obj->getPositionX());
 		}
+		maxX = std::clamp(maxX, 0.f, 999000.f);
+		m_bounds = {maxX, 0.f, std::min(3000.f, 999000.f - maxX), 3000.f};
 
 		matjson::Value body;
 		body["mode"] = std::string(m_decor ? "decor" : "gameplay");
 		body["prompt"] = prompt;
 		body["start_x"] = static_cast<double>(maxX);
+		body["cli"] = Mod::get()->getSettingValue<std::string>("cli");
+		body["max_objects"] = m_limit;
+		if (m_requestDecor) {
+			auto selected = m_editor->m_editorUI->getSelectedObjects();
+			if (selected && selected->count()) {
+				float left = 999000.f, right = 0.f, bottom = 30000.f, top = 0.f;
+				for (auto obj : CCArrayExt<GameObject*>(selected)) {
+					auto rect = obj->getObjectRect();
+					left = std::min(left, rect.getMinX()); right = std::max(right, rect.getMaxX());
+					bottom = std::min(bottom, rect.getMinY()); top = std::max(top, rect.getMaxY());
+				}
+				// A two-cell border allows decorations around the selected structures.
+				left = std::clamp(left - 60.f, 0.f, 999000.f); right = std::clamp(right + 60.f, left, 999000.f);
+				bottom = std::clamp(bottom - 60.f, 0.f, 30000.f); top = std::clamp(top + 60.f, bottom, 30000.f);
+				m_bounds = {left, bottom, right - left, top - bottom};
+			}
+			else {
+				auto win = CCDirector::get()->getWinSize();
+				auto a = m_editor->m_objectLayer->convertToNodeSpace({0.f, 0.f});
+				auto b = m_editor->m_objectLayer->convertToNodeSpace({win.width, win.height});
+				float left = std::clamp(std::min(a.x, b.x), 0.f, 999000.f);
+				float bottom = std::clamp(std::min(a.y, b.y), 0.f, 30000.f);
+				float right = std::clamp(std::max(a.x, b.x), left, std::min(left + 6000.f, 999000.f));
+				float top = std::clamp(std::max(a.y, b.y), bottom, std::min(bottom + 6000.f, 30000.f));
+				m_bounds = {left, bottom, right - left, top - bottom};
+			}
+			std::vector<matjson::Value> existing;
+			for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
+				if (!m_bounds.intersectsRect(obj->getObjectRect())) continue;
+				matjson::Value entry;
+				entry["id"] = obj->m_objectID;
+				entry["x"] = obj->getPositionX(); entry["y"] = obj->getPositionY();
+				existing.push_back(std::move(entry));
+				if (existing.size() == 300) break;
+			}
+			if (existing.empty()) return setStatus("Decor: select blocks or move to a built area", ui::kBad);
+			body["existing_objects"] = existing;
+			body["start_x"] = m_bounds.getMinX();
+		}
+		body["bounds"] = boundsJSON();
 
 		this->setBusy(true);
-		this->setStatus("Thinking... keep this panel open", ui::kMuted);
+		this->setStatus("Thinking...", ui::kMuted);
 
-		auto url = Mod::get()->getSettingValue<std::string>("bridge-url") + "/generate";
+		auto url = bridgeURL() + "/generate";
 		web::WebRequest req;
 		req.bodyJSON(body);
 		req.timeout(std::chrono::seconds(180));
 
-		async::spawn(req.post(url), [self = Ref(this)](web::WebResponse res) {
+		m_request.spawn(req.post(url), [weak = WeakRef(this)](web::WebResponse res) {
+			auto self = weak.lock();
+			if (!self) return;
 			if (!res.ok()) {
 				self->setBusy(false);
-				return self->setStatus("Bridge error " + std::to_string(res.code()), ui::kBad);
+				auto json = res.json();
+				auto error = json ? json.unwrap()["error"].asString().unwrapOr("") : "";
+				std::string message = "Bridge HTTP error " + std::to_string(res.code());
+				if (res.code() <= 0) message = "Bridge offline or request timed out";
+				else if (error == "cli_not_logged_in") message = "CLI not logged in: run login in terminal";
+				else if (error == "cli_missing") message = "Selected CLI not installed on bridge";
+				else if (error == "invalid_json") message = "CLI returned invalid JSON after retry";
+				else if (error == "timeout") message = "CLI timed out; try a shorter prompt";
+				else if (error == "busy") message = "Bridge busy; try again shortly";
+				else if (error == "cli_failed") message = "CLI failed; check login and quota";
+				self->checkHealth();
+				return self->setStatus(message, ui::kBad);
 			}
 			auto json = res.json();
 			if (!json) {
@@ -191,13 +331,26 @@ protected:
 		if (!arr) return this->setStatus("Bad response from bridge", ui::kBad);
 
 		int count = 0;
+		int scanned = 0;
+		auto created = CCArray::create();
 		for (auto const& o : arr.unwrap()) {
-			int id = o["id"].asInt().unwrapOr(0);
-			if (id <= 0) continue;
-			float x = static_cast<float>(o["x"].asDouble().unwrapOr(0.0));
-			float y = static_cast<float>(o["y"].asDouble().unwrapOr(0.0));
+			if (++scanned > 10000 || count >= m_limit) break;
+			if (!o.isObject()) continue;
+			auto rawID = o["id"].asInt().unwrapOr(0);
+			if (o["id"].asDouble().unwrapOr(0.) != static_cast<double>(rawID)) continue;
+			if (rawID <= 0 || rawID >= 100000 || !m_allowed.contains(static_cast<int>(rawID))) continue;
+			int id = static_cast<int>(rawID);
+			auto px = o["x"].asDouble(); auto py = o["y"].asDouble();
+			if (!px || !py) continue;
+			float x = static_cast<float>(px.unwrap());
+			float y = static_cast<float>(py.unwrap());
+			if ((o.contains("rot") && !o["rot"].isNumber()) ||
+				(o.contains("scale") && !o["scale"].isNumber())) continue;
 			float rot = static_cast<float>(o["rot"].asDouble().unwrapOr(0.0));
 			float scale = static_cast<float>(o["scale"].asDouble().unwrapOr(1.0));
+			if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(rot) || !std::isfinite(scale)) continue;
+			if (x < 0.f || x > 999000.f || y < 0.f || y > 30000.f ||
+				!m_bounds.containsPoint({x, y}) || scale < 0.5f || scale > 2.f || std::abs(rot) > 360.f) continue;
 
 			auto obj = m_editor->createObject(id, {x, y}, true);
 			if (!obj) continue;
@@ -206,9 +359,15 @@ protected:
 				obj->updateCustomScaleX(scale);
 				obj->updateCustomScaleY(scale);
 			}
+			created->addObject(obj);
 			count++;
 		}
-		this->setStatus("Added " + std::to_string(count) + " objects", ui::kGood);
+		if (count) {
+			m_editor->addToUndoList(UndoObject::createWithArray(created, UndoCommand::Paste), false);
+			m_editor->m_editorUI->updateButtons();
+		}
+		this->setStatus(count ? "Added " + std::to_string(count) + " objects (one undo)" :
+			"No valid objects in response", count ? ui::kGood : ui::kBad);
 	}
 
 public:
