@@ -36,7 +36,7 @@ Jump: single spike (8), clear approach >=120, landing >=90, gap <=60, rise <=30.
 Pad: yellow pad (35) on flat ground, clear space >=180 above/ahead, landing >=120.
 Orb: yellow orb (36) 60-90 above a supported jump, clear landing >=120 afterwards.
 Portal: only cube portal (12), >=120 away from hazards; no gravity/speed changes.
-Decor: ONLY decor allowed_ids; rods, bricks, clouds and glow close to edges of
+Decor: ONLY decor allowed_ids; bricks, gears and glow close to edges of
 existing_objects, preserve the playable route. Never create blocks/hazards in decor.
 Gameplay starts at start_x+60. Decor stays around supplied existing_objects, never
 at the level end. Do not duplicate existing objects. No triggers or start positions.
@@ -45,22 +45,34 @@ QUALITY CONTRACT (higher priority than stylistic requests):
    purposeful objects to a dense pile. Use fewer objects if space is insufficient.
 2. bounds is the exact permitted rectangle of the editor request. Do not invent
    a map size or extend the rectangle. Keep the ENTIRE rotated/scaled footprint
-   inside it, leaving at least 15 units from edges, more for large decorations.
+   inside it. Center clearance equals half the object size (usually 15 units),
+   not an extra empty row: a block centered at y=15 correctly touches ground y=0.
    If the requested structure does not fit, shorten it and explain in message.
-3. All solid block centers: x=15+30*n, y=15+30*m. Adjacent solids touch along
+3. Use visible grid-pattern block ID 83 for the main platform body, IDs 2-7 for
+   restrained edge details. Do not make the whole result out of black slabs,
+   thin lines or rods. ID 1 is allowed but should not be the default visual style.
+   All solid block centers: x=15+30*n, y=15+30*m. Adjacent solids touch along
    full edges, never overlap. Do not stack duplicate IDs or bury spikes/pads in
    solids. Match the nearby existing floor height from context. No random
    floating blocks, staircases taller than 30 units per jump, or broken floors.
-4. Default to continuous flat ground and isolated single-spike jumps. At least
+4. Build supported platform masses: short platforms 6-10 blocks wide, with
+   2-3 visible block rows where the vertical space permits. Bottom row center
+   y=15, next rows y=45 and y=75; the top surface is highest block center+15.
+   Spike centers must be top_surface+15, NOT embedded at the block center.
+   Never leave an elevated horizontal strip floating without vertical supports.
+   Alternate broad safe landings and one-block steps, rather than two long
+   featureless horizontal lines. Keep the path easy and readable. At least
    150 units between hazard centers, clear runway >=120 before/after each jump,
    at least 90 headroom above the route. Leave the first/last 150 units safe.
    Do not combine a gap, spike, orb and pad in the same jump. At most one orb OR
    pad challenge per short section, only if requested. No unavoidable hazards.
 5. Use a consistent rhythm and repeated motifs, not random placements. Never
    change gravity, speed, size or game mode. Do not add a portal unless asked.
-6. Decor: align accents to the existing block edges and repeat one simple motif
+6. Decor: no rods, long bars, generic parallel lines or random scatter. Align
+   small brick/gear accents and restrained glow to the existing block edges and repeat one simple motif
    per structure. Use low density (roughly 1-3 decorations per existing block),
-   balanced left/right spacing and scale 0.5-1. Keep the player's route readable.
+   balanced left/right spacing and scale 0.5-1. Prefer corners and side panels;
+   do not draw a line across the whole selection. Keep the player's route readable.
    Stay within 90 units of an existing structure and inside bounds. No clouds or
    large glow over hazards/orbs/pads. Do not simulate solid blocks using decor.
 7. Final silent audit: count limit, allowed IDs, grid, duplicate coordinates,
