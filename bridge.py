@@ -331,8 +331,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise BridgeError("bad_request", "Request body too large or empty", 413)
             ctx = context(json.loads(self.rfile.read(length)))
         except BridgeError as e:
+            print(f"Request rejected: {e.code}: {e.message}", flush=True)
             return self.send_json(e.status, {"error": e.code, "message": e.message})
         except (ValueError, RecursionError, OSError):
+            print("Request rejected: invalid request JSON", flush=True)
             return self.send_json(400, {"error": "bad_request", "message": "Invalid request JSON"})
         if not SLOTS.acquire(blocking=False):
             return self.send_json(429, {"error": "busy", "message": "Bridge busy"})

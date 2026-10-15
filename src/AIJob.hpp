@@ -160,7 +160,8 @@ public:
         body["strict_bounds"] = true;
         body["model"] = Mod::get()->getSettingValue<std::string>("model");
         body["history"] = ChatStore::messages(m_chat);
-        if (image.isObject()) body["image"] = image;
+        bool hasImage = image.isObject() && image["data"].isString() && !image["data"].asString().unwrapOr("").empty();
+        if (hasImage) body["image"] = image;
         std::vector<matjson::Value> existing;
         for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
             if (!m_bounds.intersectsRect(obj->getObjectRect())) continue;
@@ -171,7 +172,7 @@ public:
             if (existing.size() == 300) break;
         }
         body["existing_objects"] = existing;
-        ChatStore::append(m_chat, "user", prompt, image.isObject());
+        ChatStore::append(m_chat, "user", prompt, hasImage);
 
 		drawBounds();
 		this->setBusy(true);
@@ -202,6 +203,7 @@ public:
 				else if (error == "timeout") message = "CLI timed out; try a shorter prompt";
 				else if (error == "busy") message = "Bridge busy; try again shortly";
 				else if (error == "cli_failed") message = "CLI failed; check login and quota";
+				else if (error == "bad_request" && json) message = json.unwrap()["message"].asString().unwrapOr(message);
 				
 				self->setAnswer(message + ". Open Settings to check the bridge address and CLI.");
 				return self->setStatus(message, ui::kBad);

@@ -9,6 +9,12 @@ from chat_inputs import valid_model, history_messages, validate_image, image_fil
 
 
 class ChatInputTests(unittest.TestCase):
+    def test_empty_attachment_from_mod_is_not_a_photo(self):
+        self.assertIsNone(validate_image({}))
+        self.assertIsNone(bridge.context({"prompt": "Build", "image": {}})["_image"])
+        with self.assertRaises(ValueError):
+            validate_image({"unexpected": "value"})
+
     def test_model_names_cannot_inject_cli_flags(self):
         self.assertTrue(valid_model("example-model-1"))
         for name in ("--help", "x --dangerous", "x\nflag", None):

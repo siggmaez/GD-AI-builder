@@ -42,7 +42,8 @@ def history_messages(value):
 
 
 def validate_image(image):
-    if image is None:
+    # Older mod versions serialize an unset matjson value as an empty object.
+    if image is None or image == {}:
         return None
     if not isinstance(image, dict) or not isinstance(image.get("data"), str):
         raise ValueError("Invalid image attachment")
