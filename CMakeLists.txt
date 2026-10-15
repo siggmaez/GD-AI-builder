@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
 
-project(GDAIBuilder VERSION 0.5.1)
+project(GDAIBuilder VERSION 0.5.2)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

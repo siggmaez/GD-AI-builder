@@ -10,6 +10,7 @@ class AIPanel : public Popup {
     ScrollLayer* m_chat = nullptr;
     CCLabelBMFont *m_status = nullptr, *m_health = nullptr, *m_model = nullptr, *m_area = nullptr, *m_attachment = nullptr;
     CCMenuItemSpriteExtra* m_generate = nullptr;
+    CCMenuItemSpriteExtra *m_referenceButton = nullptr, *m_areaButton = nullptr;
     CCNode *m_gamePill = nullptr, *m_decorPill = nullptr;
     CCDrawNode* m_preview = nullptr;
     CCSprite* m_photo = nullptr;
@@ -24,62 +25,67 @@ class AIPanel : public Popup {
     async::TaskHolder<file::PickResult> m_picker;
 
     bool init(LevelEditorLayer* editor) {
-        if (!Popup::init(590,310,"square02b_001.png")) return false;
-        m_job = AIJob::get(editor);
-        m_decor = m_job->m_decor;
+        if (!Popup::init(460,280,"square02b_001.png")) return false;
+        m_job = AIJob::get(editor);m_decor=m_job->m_decor;
         m_bgSprite->setColor(ui::kSurface);
         m_bgSprite->setOpacity(static_cast<GLubyte>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("panel-opacity"),80,255)));
         m_closeBtn->setVisible(false);
         auto win=CCDirector::get()->getWinSize();
-        m_mainLayer->setScale(std::min({1.f,(win.width-16)/590.f,(win.height-16)/310.f}));
-        auto root=CCNode::create(); root->setContentSize(m_size);root->setAnchorPoint({.5f,.5f});root->setPosition(m_size/2);
+        // Keep a visible editor margin on every side, including phones.
+        m_mainLayer->setScale(std::min({1.f,win.width*.82f/460.f,win.height*.82f/280.f}));
+        auto root=CCNode::create();root->setContentSize(m_size);root->setAnchorPoint({.5f,.5f});root->setPosition(m_size/2);
         m_mainLayer->addChild(root);
-        auto menu=CCMenu::create();menu->setPosition({0,0});root->addChild(menu);
-        auto title=ui::label(root,"AI Builder",{77,286},.5f);
-        ui::button(menu,"History",{188,286},74,[](auto){if(auto p=HistoryPopup::create())p->show();});
-        ui::button(menu,"New",{251,286},42,[this](auto){ChatStore::newChat();refresh(0);});
-        ui::button(menu,"Model",{327,286},76,[](auto){if(auto p=ModelsPopup::create())p->show();});
-        ui::button(menu,"Settings",{412,286},80,[](auto){geode::openSettingsPopup(Mod::get());});
-        ui::button(menu,"Limits",{494,286},70,[](auto){if(auto p=AccountLimits::create())p->show();});
-        ui::button(menu,"x",{561,286},28,[this](auto){onClose(nullptr);});
-        auto bg=NineSlice::create("square02b_001.png");bg->setContentSize({292,190});bg->setPosition({162,166});bg->setColor({12,14,19});root->addChild(bg);
-        m_chat=ScrollLayer::create(CCSize{280,178});m_chat->setPosition({22,77});root->addChild(m_chat);
-        m_gamePill=ui::makePill("Gameplay",117,25,ui::kAccent,.35f);
-        m_decorPill=ui::makePill("Decor",117,25,ui::kIdle,.35f);
+        auto menu=CCMenu::create();menu->setPosition({0,0});root->addChild(menu,10);
+        auto title=ui::label(root,"AI Builder",{78,259},.45f);title->limitLabelWidth(128,.45f,.3f);
+        ui::button(menu,"Chats",{177,259},60,[](auto){if(auto p=HistoryPopup::create())p->show();});
+        ui::button(menu,"More",{391,259},55,[](auto){if(auto p=AIToolsPopup::create())p->show();});
+        ui::button(menu,"x",{440,259},24,[this](auto){onClose(nullptr);});
+        auto modelButton=ui::button(menu,"CLI default",{111,237},196,[](auto){if(auto p=ModelsPopup::create())p->show();});
+        m_model=static_cast<CCLabelBMFont*>(modelButton->getNormalImage()->getChildByTag(2));
+        auto bg=NineSlice::create("square02b_001.png");bg->setContentSize({202,149});bg->setPosition({111,155});bg->setColor({12,14,19});root->addChild(bg);
+        m_chat=ScrollLayer::create(CCSize{190,137});m_chat->setPosition({16,87});root->addChild(m_chat);
+        m_gamePill=ui::makePill("Gameplay",107,24,ui::kAccent,.33f);
+        m_decorPill=ui::makePill("Decor",107,24,ui::kIdle,.33f);
         auto game=CCMenuItemExt::createSpriteExtra(m_gamePill,[this](auto){if(!m_job->m_busy){m_decor=false;mode();}});
         auto decor=CCMenuItemExt::createSpriteExtra(m_decorPill,[this](auto){if(!m_job->m_busy){m_decor=true;mode();}});
-        game->setPosition({383,250});decor->setPosition({509,250});menu->addChild(game);menu->addChild(decor);
-        m_model=ui::label(root,"CLI default",{446,226},.3f);
-        bg=NineSlice::create("square02b_001.png");bg->setContentSize({245,85});bg->setPosition({446,155});bg->setColor({12,14,19});root->addChild(bg);
-        m_preview=CCDrawNode::create();m_preview->setPosition({329,114});root->addChild(m_preview);
-        m_area=ui::label(root,"Editor area",{446,99},.27f);
-        for(int i=0;i<3;++i){
-            std::string area=i==0?"View":i==1?"Selection":"Extend";
-            ui::button(menu,area.c_str(),{363.f+i*83.f,77},77,[this,area](auto){
-                if(!m_job->m_busy){m_job->area=area;m_job->computeBounds();refresh(0);}
-            });
-        }
-        ui::button(menu,"Reference",{382,210},100,[this](auto){m_showPhoto=!m_showPhoto;refresh(0);});
-        ui::button(menu,"Clear photo",{510,210},100,[this](auto){
-            m_image=matjson::Value();m_showPhoto=false;
-            if(m_photo){m_photo->removeFromParent();m_photo=nullptr;} m_attachment->setString("");
+        game->setPosition({277,237});decor->setPosition({393,237});menu->addChild(game);menu->addChild(decor);
+        bg=NineSlice::create("square02b_001.png");bg->setContentSize({223,113});bg->setPosition({335,164});bg->setColor({12,14,19});root->addChild(bg);
+        m_preview=CCDrawNode::create();m_preview->setPosition({230,114});root->addChild(m_preview);
+        m_referenceButton=ui::button(menu,"Reference",{390,210},90,[this](auto){m_showPhoto=!m_showPhoto;refresh(0);});
+        m_referenceButton->setVisible(false);
+        m_area=ui::label(root,"Area",{335,101},.25f);
+        m_areaButton=ui::button(menu,"Area: View >",{335,80},218,[this](auto){
+            if(m_job->m_busy)return;
+            auto selected=m_job->m_editor->m_editorUI->getSelectedObjects();
+            m_job->area=m_job->area=="View"?(selected&&selected->count()?"Selection":"Extend"):
+                m_job->area=="Selection"?"Extend":"View";
+            m_job->computeBounds();refresh(0);
         });
-        m_status=ui::label(root,"Ready",{446,52},.28f);
-        m_health=ui::label(root,"Bridge checking...",{100,62},.27f);
-        ui::button(menu,"Reconnect",{234,62},80,[this](auto){checkHealth();});
-        m_input=TextInput::create(239,"Message in English or Russian...",ui::inputFont());
-        m_input->setPosition({183,30});m_input->setFilter(std::string(getCommonFilterAllowedChars(CommonFilter::Any))+
+        m_status=ui::label(root,"Ready",{335,57},.29f);
+        m_health=ui::label(root,"Bridge checking...",{111,75},.27f);
+        // The bridge label doubles as a reconnect button, without another toolbar.
+        auto healthHit=CCMenuItemExt::createSpriteExtra(ui::makePill("",194,16,ui::kSurface),[this](auto){checkHealth();});
+        healthHit->setPosition({111,75});healthHit->setOpacity(0);menu->addChild(healthHit);
+        m_input=TextInput::create(194,"Describe your level...",ui::inputFont());
+        m_input->setPosition({111,52});m_input->setFilter(std::string(getCommonFilterAllowedChars(CommonFilter::Any))+
             "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя«»—–…№");
         m_input->setMaxCharCount(0);m_input->setCallback([this](std::string const& s){
             auto value=ui::limitUTF8(s,300);if(value!=s)m_input->setString(value);
         });
         m_input->setString(Mod::get()->getSavedValue<std::string>("draft",""));root->addChild(m_input);
-        ui::button(menu,"+",{37,30},32,[this](auto){pickImage();});
-        m_attachment=ui::label(root,"",{162,10},.24f,true);
-        ui::button(menu,"Ask AI",{377,25},104,[this](auto){send(true);});
-        m_generate=ui::button(menu,"Generate",{502,25},126,[this](auto){
-            if(m_job->m_busy)m_job->cancel();else send(false);
-        },ui::kAccent);
+        ui::button(menu,"+",{25,21},26,[this](auto){
+            if(!m_photo){pickImage();return;}
+            createQuickPopup("Reference photo","Replace or remove the attached image?","Remove","Replace",[weak=WeakRef(this)](auto,bool replace){
+                auto self=weak.lock();if(!self)return;
+                if(replace){self->pickImage();return;}
+                self->m_image=matjson::Value();self->m_showPhoto=false;
+                if(self->m_photo){self->m_photo->removeFromParent();self->m_photo=nullptr;}
+                self->m_attachment->setString("");self->refresh(0);
+            });
+        });
+        m_attachment=ui::label(root,"",{76,21},.24f,true);
+        ui::button(menu,"Ask AI",{165,21},90,[this](auto){send(true);});
+        m_generate=ui::button(menu,"Generate",{335,26},218,[this](auto){if(m_job->m_busy)m_job->cancel();else send(false);},ui::kAccent);
         mode();refresh(0);checkHealth();schedule(schedule_selector(AIPanel::refresh),.25f);
         return true;
     }
@@ -99,17 +105,20 @@ class AIPanel : public Popup {
     void refresh(float){
         if(!m_job->m_editor){onClose(nullptr);return;}
         auto model=Mod::get()->getSettingValue<std::string>("model");
-        m_model->setString(model.empty()?"CLI default":model.c_str());m_model->limitLabelWidth(240,.3f,.18f);
+        m_model->setString(model.empty()?"CLI default":model.c_str());m_model->limitLabelWidth(180,.3f,.18f);
         m_input->setEnabled(!m_job->m_busy);
         static_cast<CCLabelBMFont*>(m_generate->getNormalImage()->getChildByTag(2))->setString(m_job->m_busy?"Stop":"Generate");
-        m_status->setString(m_job->status.c_str());m_status->setColor(m_job->statusColor);m_status->limitLabelWidth(245,.28f,.18f);
+        m_status->setString(m_job->status.c_str());m_status->setColor(m_job->statusColor);m_status->limitLabelWidth(218,.29f,.18f);
         auto id=ChatStore::active();auto messages=ChatStore::messages(id);
         auto signature=id+":"+std::to_string(messages.size());
         if(signature!=m_chatSignature){m_chatSignature=signature;renderChat(messages);}
         m_job->computeBounds();
         auto b=m_job->m_bounds;
-        auto bounds=fmt::format("{}: {:.0f},{:.0f} - {:.0f},{:.0f}",m_job->area,b.getMinX(),b.getMinY(),b.getMaxX(),b.getMaxY());
-        m_area->setString(bounds.c_str());m_area->limitLabelWidth(245,.27f,.18f);
+        auto bounds=fmt::format("{:.0f} x {:.0f} units",b.size.width,b.size.height);
+        m_area->setString(bounds.c_str());m_area->limitLabelWidth(218,.25f,.18f);
+        auto areaLabel=std::string("Area: ")+m_job->area+" >";
+        static_cast<CCLabelBMFont*>(m_areaButton->getNormalImage()->getChildByTag(2))->setString(areaLabel.c_str());
+        m_referenceButton->setVisible(m_photo!=nullptr);
         if(m_photo)m_photo->setVisible(m_showPhoto);
         m_preview->setVisible(!m_showPhoto || !m_photo);
         if(!m_preview->isVisible())return;
@@ -119,7 +128,7 @@ class AIPanel : public Popup {
             b.size.width==m_previewBounds.size.width && b.size.height==m_previewBounds.size.height)return;
         m_revision=m_job->revision;m_previewObjects=objectCount;m_previewBounds=b;
         m_preview->clear();
-        float factor=std::min(233.f/std::max(1.f,b.size.width),78.f/std::max(1.f,b.size.height));
+        float factor=std::min(210.f/std::max(1.f,b.size.width),98.f/std::max(1.f,b.size.height));
         m_preview->drawRect({0,0,b.size.width*factor,b.size.height*factor},{0,0,0,0},.7f,{.4f,.5f,.8f,1});
         size_t count=0;
         for(auto obj:CCArrayExt<GameObject*>(m_job->m_editor->m_objects)){
@@ -135,8 +144,9 @@ class AIPanel : public Popup {
         auto content=m_chat->m_contentLayer;content->removeAllChildren();
         float y=8;
         if(messages.empty()){
-            auto hint=ui::label(content,"Describe a level or ask a question.\nAttach a reference with +.\nClose this window to watch construction.",{140,120},.35f,true);
-            hint->setWidth(720);content->setContentSize({280,178});content->setPosition({0,0});return;
+            auto hint=CCLabelBMFont::create("Describe a section.\n\nAsk AI for advice, or press Generate to build.\n\nUse + to add a reference.",ui::inputFont(),425,kCCTextAlignmentLeft);
+            hint->setScale(.4f);hint->setAnchorPoint({0,1});hint->setPosition({10,129});hint->setColor(ui::kMuted);
+            content->addChild(hint);content->setContentSize({190,137});content->setPosition({0,0});return;
         }
         // Lay out newest at the bottom, so position zero shows the latest reply.
         size_t shown=0;
@@ -144,15 +154,15 @@ class AIPanel : public Popup {
             auto text=(*it)["text"].asString().unwrapOr("");
             bool user=(*it)["role"].asString().unwrapOr("")=="user";
             if((*it)["image"].asBool().unwrapOr(false))text="[Reference image]\n"+text;
-            auto label=CCLabelBMFont::create(text.c_str(),ui::inputFont(),690,kCCTextAlignmentLeft);
-            label->setScale(.36f);label->setAnchorPoint({0,0});label->setColor(ui::kText);
-            float height=label->getContentHeight()*.36f+25;
+            auto label=CCLabelBMFont::create(text.c_str(),ui::inputFont(),415,kCCTextAlignmentLeft);
+            label->setScale(.4f);label->setAnchorPoint({0,0});label->setColor(ui::kText);
+            float height=label->getContentHeight()*.4f+25;
             auto bg=NineSlice::create("square02b_001.png");bg->setColor(user?ccColor3B{38,45,68}:ccColor3B{27,30,37});
-            bg->setContentSize({272,height});bg->setPosition({140,y+height/2});content->addChild(bg);
+            bg->setContentSize({182,height});bg->setPosition({95,y+height/2});content->addChild(bg);
             auto role=ui::label(content,user?"You":"AI",{20,y+height-9},.22f);role->setAnchorPoint({0,.5f});
-            label->setPosition({16,y+6});content->addChild(label);y+=height+7;
+            label->setPosition({12,y+6});content->addChild(label);y+=height+7;
         }
-        content->setContentSize({280,std::max(178.f,y)});content->setPosition({0,0});
+        content->setContentSize({190,std::max(137.f,y)});content->setPosition({0,0});
     }
     void checkHealth(){
         m_healthRequest.spawn(web::WebRequest().timeout(std::chrono::seconds(4)).get(ui::bridgeURL()+"/health"),
@@ -170,7 +180,7 @@ class AIPanel : public Popup {
             if(!result){self->m_attachment->setString("Cannot open image picker");return;}
             auto selected=result.unwrap();if(!selected)return;
             std::error_code error;auto size=std::filesystem::file_size(*selected,error);
-            if(error||size>5*1024*1024){self->m_attachment->setString("Choose PNG/JPEG up to 5 MB");return;}
+            if(error||size>5*1024*1024){self->m_attachment->setString("Max 5 MB");return;}
             auto bytes=file::readBinary(*selected);
             if(!bytes){self->m_attachment->setString("Cannot read image");return;}
             auto const& raw=bytes.unwrap();
@@ -178,12 +188,12 @@ class AIPanel : public Popup {
             bool jpg=raw.size()>=3&&raw[0]==255&&raw[1]==216&&raw[2]==255;
             if(!png&&!jpg){self->m_attachment->setString("Choose a PNG or JPEG image");return;}
             self->m_image["data"]=utils::base64::encode(raw,utils::base64::Base64Variant::Normal);
-            self->m_attachment->setString("Reference attached (max 5 MB)");
+            self->m_attachment->setString("1 photo");
             if(self->m_photo){self->m_photo->removeFromParent();self->m_photo=nullptr;}
             auto path=utils::string::pathToString(*selected);auto photo=CCSprite::create(path.c_str());
             if(photo){
-                photo->setScale(std::min(235.f/photo->getContentSize().width,77.f/photo->getContentSize().height));
-                photo->setPosition({446,155});
+                photo->setScale(std::min(211.f/photo->getContentSize().width,101.f/photo->getContentSize().height));
+                photo->setPosition({335,164});
                 // Preview and controls share the content coordinate system.
                 self->m_preview->getParent()->addChild(photo);self->m_photo=photo;self->m_showPhoto=true;
             }

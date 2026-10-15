@@ -169,3 +169,22 @@ public:
         delete popup;return nullptr;
     }
 };
+
+class AIToolsPopup : public Popup {
+    bool init() {
+        if (!Popup::init(280,260,"square02b_001.png")) return false;
+        m_bgSprite->setColor(ui::kSurface);setTitle("AI Builder",ui::font(),.5f);
+        ui::button(m_buttonMenu,"Model",{140,204},220,[](auto){if(auto p=ModelsPopup::create())p->show();});
+        ui::button(m_buttonMenu,"Chat history",{140,168},220,[](auto){if(auto p=HistoryPopup::create())p->show();});
+        ui::button(m_buttonMenu,"Codex limits",{140,132},220,[](auto){if(auto p=AccountLimits::create())p->show();});
+        ui::button(m_buttonMenu,"ChatGPT account",{140,96},220,[](auto){if(auto p=AccountPopup::create())p->show();});
+        ui::button(m_buttonMenu,"Settings",{140,60},220,[](auto){geode::openSettingsPopup(Mod::get());});
+        return true;
+    }
+public:
+    static AIToolsPopup* create() {
+        auto p=new AIToolsPopup;
+        if(p->init()){p->autorelease();return p;}
+        delete p;return nullptr;
+    }
+};
