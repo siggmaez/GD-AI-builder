@@ -34,9 +34,9 @@ class AccountPopup : public Popup {
     bool init() {
         if (!Popup::init(370, 240, "square02b_001.png")) return false;
         m_bgSprite->setColor(ui::kSurface); setTitle("ChatGPT Account", ui::font(), .5f);
-        m_message = ui::label(m_mainLayer, "Sign in through your PC bridge.", {185, 183}, .36f, true);
+        m_message = ui::label(m_mainLayer, "Connect your bridge, then sign in.", {185, 183}, .36f, true);
         m_code = ui::label(m_mainLayer, "", {185, 143}, .7f);
-        m_urlLabel = ui::label(m_mainLayer, "No API keys. No Termux on your phone.", {185, 108}, .3f, true);
+        m_urlLabel = ui::label(m_mainLayer, "Official Codex sign-in. No API keys.", {185, 108}, .3f, true);
         ui::button(m_buttonMenu, "Sign in", {78, 66}, 100, [this](auto){ start(); }, ui::kAccent);
         ui::button(m_buttonMenu, "Open link", {185, 66}, 100, [this](auto){
             if (m_url.starts_with("https://auth.openai.com/")) web::openLinkInBrowser(m_url);
@@ -44,7 +44,7 @@ class AccountPopup : public Popup {
         ui::button(m_buttonMenu, "Copy code", {292, 66}, 100, [this](auto){
             if (!m_deviceCode.empty()) clipboard::write(m_deviceCode);
         });
-        ui::label(m_mainLayer, "Keep the PC bridge running on the same Wi-Fi.", {185, 30}, .29f, true);
+        ui::label(m_mainLayer, "Keep your phone or PC bridge running.", {185, 30}, .29f, true);
         poll(0); schedule(schedule_selector(AccountPopup::poll), 3.f);
         return true;
     }
@@ -170,6 +170,30 @@ public:
     }
 };
 
+class PhoneBridgePopup : public Popup {
+    bool init() {
+        if(!Popup::init(320,230,"square02b_001.png"))return false;
+        m_bgSprite->setColor(ui::kSurface);setTitle("Phone Bridge",ui::font(),.5f);
+        auto help=CCLabelBMFont::create("Install the companion app once.\nStart it and sign in, then return to GD.\nNo PC or Termux is needed.",ui::inputFont(),680,kCCTextAlignmentCenter);
+        help->setScale(.4f);help->setPosition({160,155});m_mainLayer->addChild(help);
+        ui::button(m_buttonMenu,"Download Android app",{160,96},270,[](auto){
+            web::openLinkInBrowser("https://github.com/siggmaez/GD-AI-builder/releases/latest/download/AI-Builder-Phone-Bridge.apk");
+        });
+        ui::button(m_buttonMenu,"Open / Start bridge",{160,60},270,[](auto){
+#ifdef GEODE_IS_ANDROID
+            Mod::get()->setSettingValue("bridge-url",std::string("http://127.0.0.1:8765"));
+            web::openLinkInBrowser("aibuilder://bridge/start");
+#else
+            FLAlertLayer::create("Android app","Install the companion APK on your Android phone, then open Phone Bridge in the mod on that phone.","OK")->show();
+#endif
+        },ui::kAccent);
+        ui::label(m_mainLayer,"Local URL: http://127.0.0.1:8765",{160,25},.27f,true);
+        return true;
+    }
+public:
+    static PhoneBridgePopup* create(){auto p=new PhoneBridgePopup;if(p->init()){p->autorelease();return p;}delete p;return nullptr;}
+};
+
 class AIToolsPopup : public Popup {
     bool init() {
         if (!Popup::init(280,260,"square02b_001.png")) return false;
@@ -179,6 +203,7 @@ class AIToolsPopup : public Popup {
         ui::button(m_buttonMenu,"Codex limits",{140,132},220,[](auto){if(auto p=AccountLimits::create())p->show();});
         ui::button(m_buttonMenu,"ChatGPT account",{140,96},220,[](auto){if(auto p=AccountPopup::create())p->show();});
         ui::button(m_buttonMenu,"Settings",{140,60},220,[](auto){geode::openSettingsPopup(Mod::get());});
+        ui::button(m_buttonMenu,"Phone bridge",{140,24},220,[](auto){if(auto p=PhoneBridgePopup::create())p->show();});
         return true;
     }
 public:

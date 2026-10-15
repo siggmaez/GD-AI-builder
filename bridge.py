@@ -313,7 +313,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/health":
             return self.send_json(404, {"error": "not_found"})
         self.send_json(200, {"status": "ok", "cli": CLI,
-                             "available_clis": [c for c in COMMANDS if shutil.which(c)]})
+                             "available_clis": [c for c in COMMANDS if shutil.which(c) or
+                                                (c == "codex" and Path(os.environ.get("AI_BUILDER_CODEX_BINARY", "")).is_file())]})
 
     def do_POST(self):
         if self.path == "/auth/start":

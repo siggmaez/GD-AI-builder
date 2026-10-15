@@ -8,6 +8,7 @@ $on_mod(Loaded) {
     ButtonSettingPressedEventV3(Mod::get(), "account-actions").listen([](auto key) {
         if (key == "sign-in") { if (auto popup = AccountPopup::create()) popup->show(); }
         else if (key == "limits") { if (auto popup = AccountLimits::create()) popup->show(); }
+        else if (key == "phone-bridge") { if (auto popup = PhoneBridgePopup::create()) popup->show(); }
     }).leak();
 }
 

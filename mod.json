@@ -8,7 +8,7 @@
   },
   "id": "siggmaez.gd-ai-builder",
   "name": "AI Builder",
-  "version": "v0.5.2",
+  "version": "v0.6.0",
   "developer": "siggmaez",
   "description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
   "resources": {
@@ -48,7 +48,7 @@
     "bridge-url": {
       "type": "string",
       "name": "Bridge URL",
-      "description": "PC bridge address on the same Wi-Fi. No Termux is needed on Android.",
+      "description": "Phone companion: http://127.0.0.1:8765. Or use a PC bridge on your Wi-Fi.",
       "default": "http://127.0.0.1:8765"
     },
     "object-policy": {
@@ -140,9 +140,10 @@
       "name": "ChatGPT account",
       "buttons": {
         "sign-in": "Sign in with ChatGPT",
-        "limits": "Remaining limits"
+        "limits": "Remaining limits",
+        "phone-bridge": "Phone bridge"
       },
-      "description": "Official account login through your PC bridge. No API keys."
+      "description": "Run a bridge on this phone or connect to your PC. Official ChatGPT account sign-in, no API keys."
     },
     "panel-size": {
       "type": "int",

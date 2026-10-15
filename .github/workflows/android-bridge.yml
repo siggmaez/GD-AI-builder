@@ -91,8 +91,26 @@ jobs:
           find native/codex-arm64-v8a -name NOTICE -exec cp '{}' android-app/app/src/main/assets/licenses/Codex-NOTICE ';'
       - name: Build Android arm64 phone companion
         working-directory: android-app
-        run: gradle :app:assembleDebug
+        run: gradle :app:assembleRelease
       - uses: actions/upload-artifact@v4
         with:
-          name: AI-Builder-Phone-Bridge-test-apk
-          path: android-app/app/build/outputs/apk/debug/*.apk
+          name: AI-Builder-Phone-Bridge-unsigned
+          path: android-app/app/build/outputs/apk/release/*unsigned.apk
+      - name: Build emulator APK with actual x86_64 Codex runtime
+        working-directory: android-app
+        run: gradle -PbridgeAbi=x86_64 :app:assembleDebug
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: python android-app/tests/smoke.py android-app/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: phone-bridge-ui-preview, path: phone-bridge.png }

@@ -35,7 +35,7 @@ def start(native_directory, private_directory, cache_directory):
         configuration.mkdir(exist_ok=True)
         # The phone companion generates JSON, not shell commands. Android's
         # app sandbox also isolates its private files from Geometry Dash.
-        (configuration / 'config.toml').write_text('[features]\nshell_tool = false\n', encoding='utf-8')
+        (configuration / 'config.toml').write_text('cli_auth_credentials_store = "file"\n[features]\nshell_tool = false\n', encoding='utf-8')
         os.chdir(working)
         bridge_path = str(private / 'bridge')
         if bridge_path not in sys.path:

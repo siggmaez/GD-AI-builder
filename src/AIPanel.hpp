@@ -18,6 +18,7 @@ class AIPanel : public Popup {
     bool m_decor = false;
     bool m_showPhoto = false;
     size_t m_revision = SIZE_MAX;
+    int m_healthTicks = 0;
     CCRect m_previewBounds;
     unsigned int m_previewObjects = 0;
     std::string m_chatSignature;
@@ -105,6 +106,7 @@ class AIPanel : public Popup {
     }
     void refresh(float){
         if(!m_job->m_editor){onClose(nullptr);return;}
+        if(++m_healthTicks%40==0)checkHealth();
         auto model=Mod::get()->getSettingValue<std::string>("model");
         m_model->setString(model.empty()?"CLI default":model.c_str());m_model->limitLabelWidth(180,.3f,.18f);
         m_input->setEnabled(!m_job->m_busy);
