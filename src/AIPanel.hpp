@@ -32,7 +32,8 @@ class AIPanel : public Popup {
         m_closeBtn->setVisible(false);
         auto win=CCDirector::get()->getWinSize();
         // Keep a visible editor margin on every side, including phones.
-        m_mainLayer->setScale(std::min({1.f,win.width*.82f/460.f,win.height*.82f/280.f}));
+        float fraction=static_cast<float>(std::clamp<int64_t>(Mod::get()->getSettingValue<int64_t>("panel-size"),55,85))/100.f;
+        m_mainLayer->setScale(std::min({1.f,win.width*fraction/460.f,win.height*fraction/280.f}));
         auto root=CCNode::create();root->setContentSize(m_size);root->setAnchorPoint({.5f,.5f});root->setPosition(m_size/2);
         m_mainLayer->addChild(root);
         auto menu=CCMenu::create();menu->setPosition({0,0});root->addChild(menu,10);

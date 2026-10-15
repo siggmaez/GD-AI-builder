@@ -143,6 +143,14 @@
         "limits": "Remaining limits"
       },
       "description": "Official account login through your PC bridge. No API keys."
+    },
+    "panel-size": {
+      "type": "int",
+      "name": "Panel size (%)",
+      "default": 74,
+      "min": 55,
+      "max": 85,
+      "description": "Compact centered window size. Keeps the editor visible around the panel."
     }
   }
 }
