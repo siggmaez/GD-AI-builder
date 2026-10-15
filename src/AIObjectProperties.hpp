@@ -41,7 +41,10 @@ public:
             if(obj->m_baseColor)used.insert(obj->m_baseColor->m_colorID);
             if(obj->m_detailColor)used.insert(obj->m_detailColor->m_colorID);
             if(obj->m_targetColor>0)used.insert(obj->m_targetColor);
-            if(auto effect=typeinfo_cast<EffectGameObject*>(obj))used.insert(effect->m_copyColorID);
+            if(auto effect=typeinfo_cast<EffectGameObject*>(obj)){
+                used.insert(effect->m_copyColorID);
+                if(obj->m_objectID==1006&&effect->m_pulseTargetType==0)used.insert(effect->m_targetGroupID);
+            }
         }
         auto colors=palette.asArray();if(!colors)return true;
         if(colors.unwrap().size()>128)return false;
@@ -87,12 +90,15 @@ public:
         auto t=o["trigger"];
         if(trigger(static_cast<int>(id))){
             if(!t.isObject())return "";
+            put(36,1);
             if((id==899&&!t.contains("target_color"))||
                 (id==1006&&!t.contains("target_group")&&!t.contains("target_color"))||
                 (id!=899&&id!=1006&&!t.contains("target_group")))return "";
             for(auto [name,key]:std::initializer_list<std::pair<char const*,int>>{{"target_group",51},{"center_group",71}})
                 if(t.contains(name)){int group=mapped(m_groups,t[name]);if(!group)return "";put(key,group);}
-            if(t.contains("target_color")){int channel=mapped(m_colors,t["target_color"]);if(!channel)return "";put(23,channel);}
+            // Pulse uses key 51 for either target type; Color uses key 23.
+            // Verified against G.js src/types/color.ts (color.pulse / color.set).
+            if(t.contains("target_color")){int channel=mapped(m_colors,t["target_color"]);if(!channel)return "";put(id==1006?51:23,channel);}
             for(auto [name,key]:std::initializer_list<std::pair<char const*,int>>{{"duration",10},{"move_x",28},{"move_y",29},{"opacity",35},{"easing",30},{"angle",68},{"delay",63},{"fade_in",45},{"hold",46},{"fade_out",47},{"r",7},{"g",8},{"b",9}})
                 if(t.contains(name)){auto value=t[name].asDouble();if(!value||!std::isfinite(value.unwrap())||std::abs(value.unwrap())>30000)return "";put(key,value.unwrap());}
             for(auto [name,key]:std::initializer_list<std::pair<char const*,int>>{{"activate",56},{"spawn_triggered",62},{"touch_triggered",11},{"multi_triggered",87},{"blending",17}})

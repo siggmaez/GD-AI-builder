@@ -45,6 +45,7 @@ def properties(obj):
         trigger=obj.get("trigger")
         if not isinstance(trigger,dict) or trigger.get("type")!=TRIGGERS[obj["id"]]: raise ValueError("Trigger needs matching typed parameters")
         kind=trigger["type"]
+        if kind=="pulse" and "target_group" in trigger and "target_color" in trigger: raise ValueError("Pulse requires exactly one target type")
         allowed={"type","spawn_triggered","touch_triggered","multi_triggered"}|{
             "move":{"target_group","duration","move_x","move_y","easing"},
             "alpha":{"target_group","duration","opacity"},

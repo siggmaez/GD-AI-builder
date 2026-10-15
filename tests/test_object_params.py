@@ -31,3 +31,4 @@ class ObjectParameterTests(unittest.TestCase):
         with self.assertRaises(ValueError):palette([{"id":1,"r":256,"g":0,"b":0}])
         with self.assertRaises(ValueError):properties({"id":693,"scale_x":float("nan")})
         with self.assertRaises(ValueError):properties({"id":693,"groups":[True]})
+        with self.assertRaises(ValueError):properties({"id":1006,"trigger":{"type":"pulse","target_group":1,"target_color":1,"r":0,"g":0,"b":0}})
