@@ -9,6 +9,10 @@ from chat_inputs import valid_model, history_messages, validate_image, image_fil
 
 
 class ChatInputTests(unittest.TestCase):
+    def test_designer_receives_named_slope_families(self):
+        ctx=bridge.context({"prompt":"Build wave"})
+        self.assertTrue(any("slope" in name.lower() for name in ctx["common_ids"].values()))
+        self.assertTrue(all(identity in ctx["allowed_ids"] for identity in ctx["common_ids"]))
     def test_long_russian_prompt_and_complete_chat_reply(self):
         ctx=bridge.context({"prompt": "Построй связный уровень. "*50, "action":"chat"})
         reply="Первая часть.\n\n"+"Описание деталей. "*90

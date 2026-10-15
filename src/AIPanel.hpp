@@ -1,6 +1,7 @@
 #pragma once
 #include "AIJob.hpp"
 #include "AIMenus.hpp"
+#include "AIPromptInput.hpp"
 #include <Geode/utils/base64.hpp>
 #include <Geode/utils/string.hpp>
 
@@ -51,12 +52,22 @@ class AIPanel : public Popup {
                 }
             }
         });
-        ui::button(menu,"?",{310,259},25,[](auto){
+        ui::button(menu,"Paste",{310,259},56,[this](auto){
+            if(m_job->m_busy)return;
+            auto text=utils::clipboard::read();
+            for(auto& ch:text)if(ch=='\r'||ch=='\n'||ch=='\t')ch=' ';
+            text=ui::limitUTF8(text,2000);
+            m_input->setString(text,true);
+            size_t characters=0;for(unsigned char ch:text)if((ch&0xc0)!=0x80)++characters;
+            m_job->setStatus(fmt::format("Pasted {} / 2000 characters",characters),ui::kGood);
+        });
+        ui::button(menu,"?",{350,259},20,[](auto){
             FLAlertLayer::create("AI Builder help",
                 "<cg>Ask AI</c>: discuss and plan without adding objects.\n"
                 "<cg>Generate</c>: build inside the outlined area.\n"
                 "<cy>View</c>: visible editor. <cy>Selection</c>: selected objects. <cy>Extend</c>: after level end.\n"
                 "<cg>+</c>: attach a reference photo. <cg>Reuse</c>: copy your last prompt.\n"
+                "Use Paste for full multi-line prompts; normal game paste may stop at the first line.\n"
                 "Enable Preview before placing in Settings for Keep / Discard. Green dots show planned centers.\n"
                 "You can close this window while building. One undo removes a generation.\n"
                 "For long sections use Extend and increase Section length in More > Settings.","OK")->show();
@@ -102,6 +113,7 @@ class AIPanel : public Popup {
         m_displayChat=ChatStore::active();
         m_input->setString(Mod::get()->getSavedValue<std::string>("draft-"+m_displayChat,
             Mod::get()->getSavedValue<std::string>("draft","")));root->addChild(m_input);
+        AIPromptInput::install(m_input);
         ui::button(menu,"+",{25,21},26,[this](auto){
             if(!m_photo){pickImage();return;}
             createQuickPopup("Reference photo","Replace or remove the attached image?","Remove","Replace",[weak=WeakRef(this)](auto,bool replace){

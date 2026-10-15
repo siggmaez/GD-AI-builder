@@ -7,8 +7,8 @@ android {
         applicationId 'com.siggmaez.aibuilder.bridge'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '0.7.0'
+        versionCode 4
+        versionName '0.7.1'
         ndk { abiFilters providers.gradleProperty('bridgeAbi').getOrElse('arm64-v8a') }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

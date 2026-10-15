@@ -100,6 +100,15 @@ def number(v):
         return False
 
 
+def object_reference(ids):
+    """Give the designer named building families, not just thousands of bare IDs."""
+    selected={i for i in ids if i<220 or i in (503,504,505,660,745,1011,1292,1331,1334,1933)}
+    for keyword in ("slope","triangle","glow","outline","orb","pad","portal","saw","corner"):
+        matches=[i for i in ids if keyword in CATALOG.get(str(i),"").lower()]
+        selected.update(matches[:24])
+    return {i:CATALOG[str(i)] for i in sorted(selected) if str(i) in CATALOG}
+
+
 def context(body):
     if not isinstance(body, dict):
         raise BridgeError("bad_request", "Expected a JSON object", 400)
@@ -187,7 +196,7 @@ def context(body):
             "area": area, "existing_context_truncated": body.get("existing_context_truncated") is True,
             "level_settings": level_settings,
             "existing_objects": existing, "allowed_ids": ids,
-            "common_ids": {i: CATALOG[str(i)] for i in ids if i < 220 or i in (503, 504, 505, 660, 745, 1011, 1292, 1331, 1334, 1933)}}
+            "common_ids": object_reference(ids)}
 
 
 def extract_json(output):

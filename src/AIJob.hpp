@@ -362,12 +362,15 @@ public:
 		unschedule(schedule_selector(AIJob::applyBatch));
 		m_applying = false;
 		auto count = m_created ? m_created->count() : 0;
+		auto requested=m_pending.size();
 		if (count) {
 			m_editor->addToUndoList(UndoObject::createWithArray(m_created, UndoCommand::Paste), false);
 			m_editor->m_editorUI->updateButtons();
 		}
-		this->setStatus(count ? "Added " + std::to_string(count) + " objects (one undo)" :
+		this->setStatus(count ? fmt::format("Added {}/{} (one undo)",count,requested) :
 			"No valid objects in response", count ? ui::kGood : ui::kBad);
+		if(count && count<requested)setAnswer(fmt::format(
+            "Placed {} of {} objects. {} were not added (validation, bounds, overlap, limit or Stop). The original design was only partially applied; check transitions before playing.",count,requested,requested-count));
 		if (!count) setAnswer("No objects were added. Try a simpler section or a different area.");
 		m_pending.clear();
 		m_created = nullptr;

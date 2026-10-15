@@ -44,6 +44,12 @@ GEOMETRY AND GAMEPLAY
   obstacle motif, not a reason to forbid hard gameplay. Do not place mandatory
   clicks on decorative objects or combine incompatible trajectories.
 - For wave, plan a continuous zigzag corridor with turning space and a clear exit.
+  First plan the zigzag centerline, then put walls and teeth outside its clearance.
+  A sequence of alternating big square blocks is not automatically a wave route.
+  Use named slope/triangle families when useful; common_ids includes these names.
+  Keep portal entry aligned to the player's incoming height; a portal on the floor
+  does not teleport the wave upward into an elevated corridor. The first turn must
+  be reachable before any tooth. Preserve a complete route through the corridor.
   For ship, leave maneuvering room vertically. Ball/spider require usable opposite
   surfaces. Gravity, size and speed portals must match the following route.
 - Portals, orbs and pads must be identifiable and placed intentionally. Overlap
