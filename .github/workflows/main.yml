@@ -14,15 +14,17 @@ jobs:
         include:
           - os: windows-latest
             target: Windows
+            geode-target: Win64
           - os: ubuntu-latest
             target: Android64
+            geode-target: Android64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          target: ${{ matrix.target }}
+          target: ${{ matrix.geode-target }}
           sdk: latest
           combine: true
       - uses: actions/upload-artifact@v4
