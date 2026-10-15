@@ -76,7 +76,7 @@ class BridgeTests(unittest.TestCase):
         ctx = self.ctx(action="chat")
         result = bridge.validate_objects({"message": "Привет!\nЧто построим?", "objects": [
             {"id": 1, "x": 75, "y": 15}]}, ctx)
-        self.assertEqual(result, {"objects": [], "message": "Привет! Что построим?"})
+        self.assertEqual(result, {"objects": [], "message": "Привет!\nЧто построим?"})
         with self.assertRaises(ValueError):
             bridge.validate_objects({"objects": []}, ctx)
 
@@ -85,9 +85,9 @@ class BridgeTests(unittest.TestCase):
         ctx = self.ctx(prompt=prompt, language="ru")
         self.assertEqual(json.loads(json.dumps(ctx, ensure_ascii=False))["prompt"], prompt)
         self.assertEqual(ctx["language"], "ru")
-        self.assertEqual(len(self.ctx(prompt="ё" * 300)["prompt"]), 300)
+        self.assertEqual(len(self.ctx(prompt="ё" * 2000)["prompt"]), 2000)
         with self.assertRaises(bridge.BridgeError):
-            self.ctx(prompt="ё" * 301)
+            self.ctx(prompt="ё" * 2001)
 
     def test_bundled_font_has_russian_alphabet_and_valid_atlas_rects(self):
         from pathlib import Path
@@ -106,7 +106,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_build_preserves_short_ai_message(self):
         result = bridge.validate_objects({"objects": [], "message": "a" * 1000}, self.ctx())
-        self.assertEqual(len(result["message"]), 220)
+        self.assertEqual(len(result["message"]), 500)
 
     def test_disconnected_windows_client_does_not_crash_handler(self):
         handler = object.__new__(bridge.Handler)

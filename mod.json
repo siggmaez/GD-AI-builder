@@ -8,7 +8,7 @@
   },
   "id": "siggmaez.gd-ai-builder",
   "name": "AI Builder",
-  "version": "v0.6.1",
+  "version": "v0.7.0",
   "developer": "siggmaez",
   "description": "Minimal AI panel in the editor: builds gameplay and decoration through a local CLI bridge.",
   "resources": {
@@ -144,6 +144,20 @@
         "phone-bridge": "Phone bridge"
       },
       "description": "Run a bridge on this phone or connect to your PC. Official ChatGPT account sign-in, no API keys."
+    },
+    "clear-prompt": {
+      "type": "bool",
+      "name": "Clear prompt after sending",
+      "default": true,
+      "description": "Disable to keep the prompt for editing. Reuse copies the last prompt from the current chat."
+    },
+    "chat-text-size": {
+      "type": "int",
+      "name": "Chat text size (%)",
+      "default": 115,
+      "min": 85,
+      "max": 160,
+      "description": "Reply text size. Close and reopen the panel after changing."
     },
     "panel-size": {
       "type": "int",

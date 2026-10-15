@@ -40,6 +40,24 @@ class AIPanel : public Popup {
         auto menu=CCMenu::create();menu->setPosition({0,0});root->addChild(menu,10);
         auto title=ui::label(root,"AI Builder",{78,259},.45f);title->limitLabelWidth(128,.45f,.3f);
         ui::button(menu,"Chats",{177,259},60,[](auto){if(auto p=HistoryPopup::create())p->show();});
+        ui::button(menu,"Reuse",{249,259},60,[this](auto){
+            if(m_job->m_busy)return;
+            auto messages=ChatStore::messages(ChatStore::active());
+            for(auto it=messages.rbegin();it!=messages.rend();++it){
+                if((*it)["role"].asString().unwrapOr("")=="user"){
+                    m_input->setString((*it)["text"].asString().unwrapOr(""));return;
+                }
+            }
+        });
+        ui::button(menu,"?",{310,259},25,[](auto){
+            FLAlertLayer::create("AI Builder help",
+                "<cg>Ask AI</c>: discuss and plan without adding objects.\n"
+                "<cg>Generate</c>: build inside the outlined area.\n"
+                "<cy>View</c>: visible editor. <cy>Selection</c>: selected objects. <cy>Extend</c>: after level end.\n"
+                "<cg>+</c>: attach a reference photo. <cg>Reuse</c>: copy your last prompt.\n"
+                "You can close this window while building. One undo removes a generation.\n"
+                "For long sections use Extend and increase Section length in More > Settings.","OK")->show();
+        });
         ui::button(menu,"More",{391,259},55,[](auto){if(auto p=AIToolsPopup::create())p->show();});
         ui::button(menu,"x",{440,259},24,[this](auto){onClose(nullptr);});
         auto modelButton=ui::button(menu,"CLI default",{111,237},196,[](auto){if(auto p=ModelsPopup::create())p->show();});
@@ -72,7 +90,8 @@ class AIPanel : public Popup {
         m_input->setPosition({111,52});m_input->setFilter(std::string(getCommonFilterAllowedChars(CommonFilter::Any))+
             "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя«»—–…№");
         m_input->setMaxCharCount(0);m_input->setCallback([this](std::string const& s){
-            auto value=ui::limitUTF8(s,300);if(value!=s)m_input->setString(value);
+            auto value=ui::limitUTF8(s,2000);if(value!=s)m_input->setString(value);
+            Mod::get()->setSavedValue("draft",value);
         });
         m_input->setString(Mod::get()->getSavedValue<std::string>("draft",""));root->addChild(m_input);
         ui::button(menu,"+",{25,21},26,[this](auto){
@@ -99,7 +118,9 @@ class AIPanel : public Popup {
         if(m_job->m_busy)return;
         m_job->sendRequest(chat,m_input->getString(),m_decor,m_image);
         if(m_job->m_busy){
-            m_input->setString("");Mod::get()->setSavedValue("draft",std::string(""));
+            if(Mod::get()->getSettingValue<bool>("clear-prompt")){
+                m_input->setString("");Mod::get()->setSavedValue("draft",std::string(""));
+            }
             m_image=matjson::Value();m_attachment->setString("");
         }
         refresh(0);
@@ -157,9 +178,10 @@ class AIPanel : public Popup {
             auto text=(*it)["text"].asString().unwrapOr("");
             bool user=(*it)["role"].asString().unwrapOr("")=="user";
             if((*it)["image"].asBool().unwrapOr(false))text="[Reference image]\n"+text;
-            auto label=CCLabelBMFont::create(text.c_str(),ui::inputFont(),415,kCCTextAlignmentLeft);
-            label->setScale(.4f);label->setAnchorPoint({0,0});label->setColor(ui::kText);
-            float height=label->getContentHeight()*.4f+25;
+            float textScale=.4f*static_cast<float>(Mod::get()->getSettingValue<int64_t>("chat-text-size"))/100.f;
+            auto label=CCLabelBMFont::create(text.c_str(),ui::inputFont(),166.f/textScale,kCCTextAlignmentLeft);
+            label->setScale(textScale);label->setAnchorPoint({0,0});label->setColor(ui::kText);
+            float height=label->getContentHeight()*textScale+25;
             auto bg=NineSlice::create("square02b_001.png");bg->setColor(user?ccColor3B{38,45,68}:ccColor3B{27,30,37});
             bg->setContentSize({182,height});bg->setPosition({95,y+height/2});content->addChild(bg);
             auto role=ui::label(content,user?"You":"AI",{20,y+height-9},.22f);role->setAnchorPoint({0,.5f});

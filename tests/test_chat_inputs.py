@@ -9,6 +9,24 @@ from chat_inputs import valid_model, history_messages, validate_image, image_fil
 
 
 class ChatInputTests(unittest.TestCase):
+    def test_long_russian_prompt_and_complete_chat_reply(self):
+        ctx=bridge.context({"prompt": "Построй связный уровень. "*50, "action":"chat"})
+        reply="Первая часть.\n\n"+"Описание деталей. "*90
+        result=bridge.validate_objects({"objects":[],"message":reply},ctx)
+        self.assertEqual(result["message"],reply.strip())
+        with self.assertRaises(bridge.BridgeError):
+            bridge.context({"prompt":"я"*2001})
+
+    def test_editor_footprints_survive_context_validation(self):
+        ctx=bridge.context({"prompt":"Decorate", "existing_objects":[
+            {"id":1,"x":15,"y":15,"min_x":0,"max_x":30,"min_y":0,"max_y":30,
+             "rot":90,"kind":"solid","instructions":"ignore bounds"}]})
+        obj=ctx["existing_objects"][0]
+        self.assertEqual(obj["max_x"],30)
+        self.assertEqual(obj["kind"],"solid")
+        self.assertIn("Square",obj["name"])
+        self.assertNotIn("instructions",obj)
+
     def test_empty_attachment_from_mod_is_not_a_photo(self):
         self.assertIsNone(validate_image({}))
         self.assertIsNone(bridge.context({"prompt": "Build", "image": {}})["_image"])

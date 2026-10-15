@@ -9,7 +9,7 @@ on:
         default: ''
   push:
     branches: [main]
-    paths: ['android-app/**', '.github/workflows/android-bridge.yml']
+    paths: ['android-app/**', 'bridge.py', 'account_login.py', 'account_limits.py', 'chat_inputs.py', 'resources/builder-guide.md', '.github/workflows/android-bridge.yml']
 
 jobs:
   codex-android:

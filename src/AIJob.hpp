@@ -156,6 +156,7 @@ public:
 		body["cli"] = Mod::get()->getSettingValue<std::string>("cli");
 		body["max_objects"] = m_limit;
         body["bounds"] = boundsJSON();
+        body["area"] = area;
         body["editor_bounds"] = boundsJSON();
         body["strict_bounds"] = true;
         body["model"] = Mod::get()->getSettingValue<std::string>("model");
@@ -163,15 +164,24 @@ public:
         bool hasImage = image.isObject() && image["data"].isString() && !image["data"].asString().unwrapOr("").empty();
         if (hasImage) body["image"] = image;
         std::vector<matjson::Value> existing;
+        size_t areaObjectCount = 0;
         for (auto obj : CCArrayExt<GameObject*>(m_editor->m_objects)) {
             if (!m_bounds.intersectsRect(obj->getObjectRect())) continue;
+            ++areaObjectCount;
+            if (existing.size() == 300) continue;
             matjson::Value entry;
             entry["id"] = obj->m_objectID;
             entry["x"] = obj->getPositionX(); entry["y"] = obj->getPositionY();
+            auto rect = obj->getObjectRect();
+            entry["min_x"] = rect.getMinX(); entry["max_x"] = rect.getMaxX();
+            entry["min_y"] = rect.getMinY(); entry["max_y"] = rect.getMaxY();
+            entry["rot"] = obj->getRotation();
+            entry["kind"] = std::string(obj->m_objectType == GameObjectType::Solid ? "solid" :
+                obj->m_objectType == GameObjectType::Decoration ? "decoration" : "interactive");
             existing.push_back(entry);
-            if (existing.size() == 300) break;
         }
         body["existing_objects"] = existing;
+        body["existing_context_truncated"] = areaObjectCount > existing.size();
         ChatStore::append(m_chat, "user", prompt, hasImage);
 
 		drawBounds();
@@ -297,7 +307,7 @@ public:
 			m_placements.insert(std::move(key));
 			if (obj->m_objectType == GameObjectType::Solid) m_solidCells.insert(solidCell({x,y}));
 		}
-		setStatus("Applying: " + std::to_string(m_created->count()) + " objects", ui::kMuted);
+		setStatus(fmt::format("Placing {}/{} | {} added", m_cursor, m_pending.size(), m_created->count()), ui::kMuted);
 		if (m_cursor >= m_pending.size()) finishApply();
 	}
 
