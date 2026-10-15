@@ -13,7 +13,7 @@ class AccountLimits : public Popup {
 
     bool init() {
         if (!Popup::init(330.f, 220.f)) return false;
-        setTitle("ChatGPT Limits", "bigFont.fnt", .5f);
+        setTitle("Codex Limits", "bigFont.fnt", .5f);
         m_bgSprite->setColor({20, 22, 27});
         m_text = CCLabelBMFont::create("Checking account limits...", "bigFont.fnt", 540.f,
                                       kCCTextAlignmentCenter);
@@ -59,7 +59,7 @@ class AccountLimits : public Popup {
                         }
                         text += "\n";
                     }
-                    text += "Account-wide usage. Updated every 60s.";
+                    text += "Codex account usage. Updated every 60s.";
                 }
                 self->m_text->setString(text.c_str());
                 self->m_text->setScale(std::min(.45f, 130.f / std::max(1.f, self->m_text->getContentHeight())));
