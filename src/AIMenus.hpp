@@ -109,7 +109,7 @@ class ModelsPopup : public Popup {
             [weak=WeakRef(this)](web::WebResponse response){
                 auto self=weak.lock(); if (!self) return;
                 auto json=response.json(); if (!response.ok() || !json) return;
-                self->populate(json.unwrap()["models"].asArray().unwrapOr({}));
+                self->populate(json.unwrap()["models"].asArray().unwrapOr(std::vector<matjson::Value>{}));
             });
         return true;
     }

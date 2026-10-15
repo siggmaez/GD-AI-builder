@@ -36,12 +36,12 @@ public:
     }
     static std::vector<matjson::Value> messages(std::string const& id) {
         for (auto const& chat : chats()) if (chat["id"].asString().unwrapOr("") == id)
-            return chat["messages"].asArray().unwrapOr({});
+            return chat["messages"].asArray().unwrapOr(std::vector<matjson::Value>{});
         return {};
     }
     static void append(std::string const& id, std::string const& role, std::string const& text, bool image = false) {
         for (auto& chat : chats()) if (chat["id"].asString().unwrapOr("") == id) {
-            auto list = chat["messages"].asArray().unwrapOr({});
+            auto list = chat["messages"].asArray().unwrapOr(std::vector<matjson::Value>{});
             matjson::Value m; m["role"] = role; m["text"] = text; m["image"] = image;
             list.push_back(m); chat["messages"] = list;
             if (role == "user" && chat["title"].asString().unwrapOr("") == "New chat")

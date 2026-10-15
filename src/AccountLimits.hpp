@@ -13,7 +13,7 @@ class AccountLimits : public Popup {
 
     bool init() {
         if (!Popup::init(330.f, 220.f)) return false;
-        setTitle("ChatGPT Limits");
+        setTitle("ChatGPT Limits", "bigFont.fnt", .5f);
         m_bgSprite->setColor({20, 22, 27});
         m_text = CCLabelBMFont::create("Checking account limits...", "bigFont.fnt", 540.f,
                                       kCCTextAlignmentCenter);
