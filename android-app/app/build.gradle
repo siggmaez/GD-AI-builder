@@ -7,8 +7,8 @@ android {
         applicationId 'com.siggmaez.aibuilder.bridge'
         minSdk 26
         targetSdk 35
-        versionCode 4
-        versionName '0.7.1'
+        versionCode 5
+        versionName '0.8.0'
         ndk { abiFilters providers.gradleProperty('bridgeAbi').getOrElse('arm64-v8a') }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -22,6 +22,7 @@ tasks.register('prepareBridgeAssets', Sync) {
     from('../../account_login.py')
     from('../../account_limits.py')
     from('../../chat_inputs.py')
+    from('../../object_params.py')
     into('resources') {
         from('../../resources') { include 'object-whitelist.json', 'object-catalog.json', 'login.html', 'builder-guide.md' }
     }

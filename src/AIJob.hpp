@@ -1,6 +1,7 @@
 #pragma once
 #include "AIStyle.hpp"
 #include "ChatStore.hpp"
+#include "AIObjectProperties.hpp"
 
 // Owned by EditorUI, independently of the popup; leaving the editor cancels it.
 class AIJob : public CCNode {
@@ -20,6 +21,8 @@ public:
     size_t m_limit = 300, m_cursor = 0;
     int m_timeout = 180, m_elapsed = 0;
     std::vector<matjson::Value> m_pending;
+    matjson::Value m_palette;
+    AIObjectProperties m_properties;
     Ref<CCArray> m_created;
     std::unordered_set<std::string> m_placements;
     std::unordered_set<int64_t> m_solidCells;
@@ -274,6 +277,7 @@ public:
 		auto arr = json["objects"].asArray();
 		if (!arr) { setBusy(false); return setStatus("Bad response from bridge", ui::kBad); }
 		m_pending = arr.unwrap();
+        m_palette=json["palette"];
 		if (m_pending.empty()) {
 			setBusy(false); setStatus("AI replied; no objects to add", ui::kMuted); return;
 		}
@@ -288,6 +292,10 @@ public:
 
 	void beginApply() {
 		m_previewReady = false;
+        if(!m_properties.prepare(m_editor,m_pending,m_palette)){
+            setBusy(false);setStatus("Cannot allocate groups or colors",ui::kBad);
+            setAnswer("Cannot prepare the local groups/palette. No objects were added.");m_pending.clear();return;
+        }
 		m_cursor = 0;
 		m_created = CCArray::create();
 		m_placements.clear();
@@ -330,18 +338,14 @@ public:
 			bool strict = true;
 			if (strict && !m_bounds.containsPoint({x, y})) continue;
 			auto key = fmt::format("{}:{:.2f}:{:.2f}:{:.2f}", id, x, y, rot);
+            if(o.contains("groups")||o.contains("base_color")||o.contains("detail_color")||o.contains("z_layer")||o.contains("z_order")||o.contains("trigger"))key+=":"+o.dump();
 			if (m_placements.contains(key)) continue;
 
-			auto obj = m_editor->createObject(id, {x, y}, true);
+			auto obj = m_properties.create(o);
 			if (!obj) continue;
-			if ((m_requestDecor && obj->m_objectType != GameObjectType::Decoration) ||
+			if ((m_requestDecor && obj->m_objectType != GameObjectType::Decoration && !AIObjectProperties::trigger(id)) ||
 				(Mod::get()->getSettingValue<bool>("avoid-overlap") && obj->m_objectType == GameObjectType::Solid && m_solidCells.contains(solidCell({x,y})))) {
 				m_editor->removeObject(obj, true); continue;
-			}
-			if (rot != 0.f) obj->setRotation(rot);
-			if (scale != 1.f) {
-				obj->updateCustomScaleX(scale);
-				obj->updateCustomScaleY(scale);
 			}
 			// Test the actual footprint, not just the object's center.
 			auto rect = obj->getObjectRect();
@@ -372,6 +376,7 @@ public:
 		if(count && count<requested)setAnswer(fmt::format(
             "Placed {} of {} objects. {} were not added (validation, bounds, overlap, limit or Stop). The original design was only partially applied; check transitions before playing.",count,requested,requested-count));
 		if (!count) setAnswer("No objects were added. Try a simpler section or a different area.");
+        if(count){auto mapping=m_properties.mappingSummary();if(!mapping.empty())setAnswer(mapping);}
 		m_pending.clear();
 		m_created = nullptr;
 		setBusy(false);

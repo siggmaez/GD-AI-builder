@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 from account_login import AccountLogin, account_env, has_chatgpt_login
 from chat_inputs import valid_model, model_list, history_messages, validate_image, image_file
 from account_limits import cached_limits
+from object_params import TRIGGERS, palette, properties, validate_links
 
 CLI = os.environ.get("BRIDGE_CLI", "codex")
 HOST = os.environ.get("BRIDGE_HOST", "127.0.0.1")
@@ -73,9 +74,8 @@ CONSTRUCTION RULES, NOT CREATIVE BANS:
   buffers. Recalculate spacing for new speed/size/gravity instead of cube rules.
 - Ship/wave/swing: a continuous open corridor, generous entry, no blocking walls
   through the route. Ball/spider need reachable opposing surfaces. Transition
-  back deliberately, not directly into a hazard. Do not add unconfigured triggers
-  expecting properties the schema does not provide. Object placement alone does not
-  configure groups, camera actions, colors or advanced trigger parameters.
+  back deliberately, not directly into a hazard. Use only the typed parameters
+  documented below. Never emit an unconfigured trigger or raw GD save-string keys.
 - Decor mode uses surrounding existing_objects and bounds, never the level end.
   Use repeated edge/corner/infill details, consistent spacing and chosen density.
   Keep route, orbs and hazards readable. Gameplay mode may also include decoration.
@@ -103,7 +103,7 @@ def number(v):
 def object_reference(ids):
     """Give the designer named building families, not just thousands of bare IDs."""
     selected={i for i in ids if i<220 or i in (503,504,505,660,745,1011,1292,1331,1334,1933)}
-    for keyword in ("slope","triangle","glow","outline","orb","pad","portal","saw","corner"):
+    for keyword in ("slope","triangle","decorative colored","glow","outline","orb","pad","portal","saw","corner"):
         matches=[i for i in ids if keyword in CATALOG.get(str(i),"").lower()]
         selected.update(matches[:24])
     return {i:CATALOG[str(i)] for i in sorted(selected) if str(i) in CATALOG}
@@ -179,6 +179,8 @@ def context(body):
     ids = POLICY[mode]
     if body.get("object_policy") == "curated":
         ids = [i for i in ids if i < 1500]
+    ids = sorted(set(ids)|set(TRIGGERS))
+    ids = [i for i in ids if "trigger" not in CATALOG.get(str(i),"").lower() or i in TRIGGERS]
     settings = {}
     for key, default in (("strict_bounds", True), ("allow_mode_changes", True), ("avoid_overlap", True)):
         if type(body.get(key, default)) is not bool:
@@ -224,6 +226,7 @@ def validate_objects(data, ctx):
         if not message:
             raise ValueError("Missing AI reply")
         return {"objects": [], "message": message}
+    colors=palette(data.get("palette",[]))
     result, b, allowed = [], ctx["bounds"], set(ctx["allowed_ids"])
     seen = set()
     for o in data["objects"]:
@@ -240,14 +243,17 @@ def validate_objects(data, ctx):
             continue
         if not ctx.get("allow_mode_changes", True) and o["id"] in (10,11,12,13,47,99,101,111,200,201,202,203,660,745,1331,1334,1933):
             continue
-        key = (o["id"], round(x, 3), round(y, 3), round(rot, 3), round(scale, 3))
+        extra=properties(o)
+        key = (o["id"], round(x, 3), round(y, 3), round(rot, 3), round(scale, 3),json.dumps(extra,sort_keys=True))
         if key in seen:
             continue
         seen.add(key)
-        result.append({"id": o["id"], "x": x, "y": y, "rot": rot, "scale": scale})
+        result.append({"id": o["id"], "x": x, "y": y, "rot": rot, "scale": scale,**extra})
     if data["objects"] and not result:
         raise ValueError("No valid objects")
     response = {"objects": result}
+    validate_links(result,colors)
+    if colors:response["palette"]=colors
     if message:
         response["message"] = message
     return response

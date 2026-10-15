@@ -62,7 +62,7 @@ jobs:
           import zipfile
           from pathlib import Path
           with zipfile.ZipFile('AI-Builder-Bridge.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-              for name in ['bridge.py', 'account_login.py', 'account_limits.py', 'chat_inputs.py', 'README.md']:
+              for name in ['bridge.py', 'account_login.py', 'account_limits.py', 'chat_inputs.py', 'object_params.py', 'README.md']:
                   z.write(name)
               for folder in ['resources', 'android']:
                   for p in Path(folder).rglob('*'):
